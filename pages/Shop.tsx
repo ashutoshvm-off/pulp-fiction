@@ -9,6 +9,7 @@ export const Shop: React.FC = () => {
   const [priceRange, setPriceRange] = useState<string>('any');
   const [minRating, setMinRating] = useState<number>(0);
   const [sortBy, setSortBy] = useState<string>('bestselling');
+  const [showMobileFilters, setShowMobileFilters] = useState<boolean>(false);
 
   const categories = ['juice', 'smoothie', 'shot', 'snack', 'bundle'];
 
@@ -58,7 +59,10 @@ export const Shop: React.FC = () => {
         <div className="lg:hidden">
           {/* Filter Count Badge */}
           <div className="mb-4">
-            <button className="inline-flex items-center gap-2 px-4 py-2 border-2 border-primary rounded-full text-sm font-bold text-gray-900">
+            <button
+              onClick={() => setShowMobileFilters(!showMobileFilters)}
+              className="inline-flex items-center gap-2 px-4 py-2 border-2 border-primary rounded-full text-sm font-bold text-gray-900"
+            >
               <span className="material-symbols-outlined text-primary text-xl">tune</span>
               {(activeCategories.length > 0 || priceRange !== 'any' || minRating > 0) && (
                 <span className="bg-primary text-black rounded-full size-5 flex items-center justify-center text-xs">
@@ -69,82 +73,86 @@ export const Shop: React.FC = () => {
             </button>
           </div>
 
-          {/* Categories Pills */}
-          <div className="mb-4">
-            <div className="flex gap-2 overflow-x-auto pb-2 no-scrollbar">
-              {categories.map(cat => (
-                <button
-                  key={cat}
-                  onClick={() => toggleCategory(cat)}
-                  className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap border-2 transition-all ${activeCategories.includes(cat)
-                    ? 'bg-primary border-primary text-black'
-                    : 'bg-white border-gray-300 text-gray-700 hover:border-primary'
-                    }`}
-                >
-                  {cat.charAt(0).toUpperCase() + cat.slice(1)}
-                </button>
-              ))}
-            </div>
-          </div>
+          {showMobileFilters && (
+            <>
+              {/* Categories Pills */}
+              <div className="mb-4">
+                <div className="flex gap-2 overflow-x-auto pb-2 no-scrollbar">
+                  {categories.map(cat => (
+                    <button
+                      key={cat}
+                      onClick={() => toggleCategory(cat)}
+                      className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap border-2 transition-all ${activeCategories.includes(cat)
+                        ? 'bg-primary border-primary text-black'
+                        : 'bg-white border-gray-300 text-gray-700 hover:border-primary'
+                        }`}
+                    >
+                      {cat.charAt(0).toUpperCase() + cat.slice(1)}
+                    </button>
+                  ))}
+                </div>
+              </div>
 
-          {/* Price Pills */}
-          <div className="mb-4">
-            <div className="flex gap-2 overflow-x-auto pb-2 no-scrollbar">
-              {[
-                { label: 'Up to ₹150', value: 'under-150' },
-                { label: '₹150-₹300', value: '150-300' },
-                { label: '₹300-₹500', value: '300-500' },
-                { label: 'Over ₹500', value: 'over-500' },
-              ].map((range) => (
-                <button
-                  key={range.value}
-                  onClick={() => setPriceRange(range.value)}
-                  className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap border-2 transition-all ${priceRange === range.value
-                    ? 'bg-primary border-primary text-black'
-                    : 'bg-white border-gray-300 text-gray-700 hover:border-primary'
-                    }`}
-                >
-                  {range.label}
-                </button>
-              ))}
-            </div>
-          </div>
+              {/* Price Pills */}
+              <div className="mb-4">
+                <div className="flex gap-2 overflow-x-auto pb-2 no-scrollbar">
+                  {[
+                    { label: 'Up to ₹150', value: 'under-150' },
+                    { label: '₹150-₹300', value: '150-300' },
+                    { label: '₹300-₹500', value: '300-500' },
+                    { label: 'Over ₹500', value: 'over-500' },
+                  ].map((range) => (
+                    <button
+                      key={range.value}
+                      onClick={() => setPriceRange(range.value)}
+                      className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap border-2 transition-all ${priceRange === range.value
+                        ? 'bg-primary border-primary text-black'
+                        : 'bg-white border-gray-300 text-gray-700 hover:border-primary'
+                        }`}
+                    >
+                      {range.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
 
-          {/* Rating Pills */}
-          <div className="mb-4">
-            <div className="flex gap-2 overflow-x-auto pb-2 no-scrollbar">
-              {[4, 3, 2, 1].map((rating) => (
-                <button
-                  key={rating}
-                  onClick={() => setMinRating(rating)}
-                  className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap border-2 transition-all flex items-center gap-1 ${minRating === rating
-                    ? 'bg-primary border-primary text-black'
-                    : 'bg-white border-gray-300 text-gray-700 hover:border-primary'
-                    }`}
-                >
-                  <div className="flex">
-                    {[...Array(rating)].map((_, i) => (
-                      <span key={i} className={`material-symbols-outlined text-[16px] filled ${minRating === rating ? 'text-black' : 'text-yellow-400'}`}>star</span>
-                    ))}
-                  </div>
-                  &amp; Up
-                </button>
-              ))}
-            </div>
-          </div>
+              {/* Rating Pills */}
+              <div className="mb-4">
+                <div className="flex gap-2 overflow-x-auto pb-2 no-scrollbar">
+                  {[4, 3, 2, 1].map((rating) => (
+                    <button
+                      key={rating}
+                      onClick={() => setMinRating(rating)}
+                      className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap border-2 transition-all flex items-center gap-1 ${minRating === rating
+                        ? 'bg-primary border-primary text-black'
+                        : 'bg-white border-gray-300 text-gray-700 hover:border-primary'
+                        }`}
+                    >
+                      <div className="flex">
+                        {[...Array(rating)].map((_, i) => (
+                          <span key={i} className={`material-symbols-outlined text-[16px] filled ${minRating === rating ? 'text-black' : 'text-yellow-400'}`}>star</span>
+                        ))}
+                      </div>
+                      &amp; Up
+                    </button>
+                  ))}
+                </div>
+              </div>
 
-          {/* Clear Filters */}
-          {(activeCategories.length > 0 || priceRange !== 'any' || minRating > 0) && (
-            <button
-              onClick={() => {
-                setActiveCategories([]);
-                setPriceRange('any');
-                setMinRating(0);
-              }}
-              className="text-sm text-primary font-bold hover:underline mb-4"
-            >
-              Clear all filters
-            </button>
+              {/* Clear Filters */}
+              {(activeCategories.length > 0 || priceRange !== 'any' || minRating > 0) && (
+                <button
+                  onClick={() => {
+                    setActiveCategories([]);
+                    setPriceRange('any');
+                    setMinRating(0);
+                  }}
+                  className="text-sm text-primary font-bold hover:underline mb-4"
+                >
+                  Clear all filters
+                </button>
+              )}
+            </>
           )}
         </div>
 

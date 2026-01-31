@@ -28,23 +28,6 @@ export const Home: React.FC = () => {
         </div>
       </div>
 
-      {/* Value Props */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mb-20">
-        {[
-          { icon: 'local_shipping', title: 'Free Delivery', desc: 'Orders over ₹500' },
-          { icon: 'verified', title: '100% Organic', desc: 'Certified local farms' },
-          { icon: 'recycling', title: 'Eco-Packaging', desc: 'Recyclable materials' },
-          { icon: 'sentiment_satisfied', title: 'Fresh Guarantee', desc: 'Or your money back' },
-        ].map((item, i) => (
-          <div key={i} className="flex flex-col items-center text-center gap-3">
-            <div className="size-16 rounded-full bg-white shadow-sm flex items-center justify-center text-primary">
-              <span className="material-symbols-outlined text-3xl">{item.icon}</span>
-            </div>
-            <h3 className="font-bold text-lg text-gray-900">{item.title}</h3>
-            <p className="text-sm text-gray-500">{item.desc}</p>
-          </div>
-        ))}
-      </div>
 
       {/* Trending */}
       <div className="mb-20">
