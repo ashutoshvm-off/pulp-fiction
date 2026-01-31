@@ -1,15 +1,24 @@
-import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
 import { PRODUCTS } from '../data';
 import { useCart } from '../context/CartContext';
 
 export const Shop: React.FC = () => {
   const { addToCart } = useCart();
-  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [searchParams] = useSearchParams();
+  const viewParam = searchParams.get('view');
+
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(viewParam === 'all' ? 'all' : null);
   const [priceRange, setPriceRange] = useState<string>('any');
   const [minRating, setMinRating] = useState<number>(0);
   const [sortBy, setSortBy] = useState<string>('bestselling');
   const [showMobileFilters, setShowMobileFilters] = useState<boolean>(false);
+
+  useEffect(() => {
+    if (viewParam === 'all') {
+      setSelectedCategory('all');
+    }
+  }, [viewParam]);
 
   const categories = [
     { id: 'juice', name: 'Juices', icon: '🥤', description: 'Fresh cold-pressed juices' },
@@ -20,8 +29,8 @@ export const Shop: React.FC = () => {
   ];
 
   const filteredProducts = PRODUCTS.filter(product => {
-    // Category filter
-    if (selectedCategory && product.category !== selectedCategory) return false;
+    // Category filter - skip if 'all' is selected
+    if (selectedCategory && selectedCategory !== 'all' && product.category !== selectedCategory) return false;
 
     // Price filter
     if (priceRange === 'under-150' && product.price >= 150) return false;
@@ -127,8 +136,12 @@ export const Shop: React.FC = () => {
           <span className="material-symbols-outlined">arrow_back</span>
           <span className="font-medium">Back to Categories</span>
         </button>
-        <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">{currentCategory?.name}</h1>
-        <p className="text-gray-500">{currentCategory?.description}</p>
+        <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">
+          {selectedCategory === 'all' ? 'All Products' : currentCategory?.name}
+        </h1>
+        <p className="text-gray-500">
+          {selectedCategory === 'all' ? 'Browse our complete collection' : currentCategory?.description}
+        </p>
       </div>
 
       <div className="flex flex-col lg:flex-row gap-8">

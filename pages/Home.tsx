@@ -33,7 +33,7 @@ export const Home: React.FC = () => {
       <div className="mb-20">
         <div className="flex items-center justify-between mb-8">
           <h2 className="text-2xl font-bold text-gray-900">Trending Now</h2>
-          <Link to="/shop" className="text-primary font-bold flex items-center gap-1 hover:underline">
+          <Link to="/shop?view=all" className="text-primary font-bold flex items-center gap-1 hover:underline">
             View All Products <span className="material-symbols-outlined text-sm">arrow_forward</span>
           </Link>
         </div>
