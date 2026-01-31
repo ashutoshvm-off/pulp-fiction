@@ -1,6 +1,5 @@
 import React from 'react';
 import { HashRouter, Routes, Route, Outlet } from 'react-router-dom';
-import { ThemeProvider } from './context/ThemeContext';
 import { CartProvider } from './context/CartContext';
 import { SubscriptionProvider } from './context/SubscriptionContext';
 import { Layout } from './components/Layout';
@@ -16,41 +15,39 @@ import { OurStory } from './pages/OurStory';
 
 const App: React.FC = () => {
   return (
-    <ThemeProvider>
-      <HashRouter>
-        <CartProvider>
-          <SubscriptionProvider>
-            <Layout>
-              <Routes>
-                <Route path="/" element={<Home />} />
-                <Route path="/shop" element={<Shop />} />
-                <Route path="/our-story" element={<OurStory />} />
-                <Route path="/product/:id" element={<ProductDetail />} />
-                <Route path="/cart" element={<Cart />} />
-                <Route path="/checkout" element={<Checkout />} />
+    <HashRouter>
+      <CartProvider>
+        <SubscriptionProvider>
+          <Layout>
+            <Routes>
+              <Route path="/" element={<Home />} />
+              <Route path="/shop" element={<Shop />} />
+              <Route path="/our-story" element={<OurStory />} />
+              <Route path="/product/:id" element={<ProductDetail />} />
+              <Route path="/cart" element={<Cart />} />
+              <Route path="/checkout" element={<Checkout />} />
 
-                <Route path="/subscription" element={<Outlet />}>
-                  <Route index element={
-                    <div className="flex flex-col items-center w-full">
-                      <h1 className="text-3xl md:text-4xl font-bold text-center mb-2 dark:text-white">Build Your Wellness Routine</h1>
-                      <p className="text-center text-sage-500 dark:text-sage-400 mb-8 max-w-2xl">Customize your box with fresh, organic juices and snacks.</p>
-                      <BuildBox />
-                    </div>
-                  } />
-                  <Route path="schedule" element={
-                    <div className="flex flex-col items-center w-full">
-                      <h1 className="text-3xl md:text-4xl font-bold text-center mb-2 dark:text-white">Set Your Delivery Schedule</h1>
-                      <Schedule />
-                    </div>
-                  } />
-                  <Route path="success" element={<Success />} />
-                </Route>
-              </Routes>
-            </Layout>
-          </SubscriptionProvider>
-        </CartProvider>
-      </HashRouter>
-    </ThemeProvider>
+              <Route path="/subscription" element={<Outlet />}>
+                <Route index element={
+                  <div className="flex flex-col items-center w-full">
+                    <h1 className="text-3xl md:text-4xl font-bold text-center mb-2">Build Your Wellness Routine</h1>
+                    <p className="text-center text-sage-500 mb-8 max-w-2xl">Customize your box with fresh, organic juices and snacks.</p>
+                    <BuildBox />
+                  </div>
+                } />
+                <Route path="schedule" element={
+                  <div className="flex flex-col items-center w-full">
+                    <h1 className="text-3xl md:text-4xl font-bold text-center mb-2">Set Your Delivery Schedule</h1>
+                    <Schedule />
+                  </div>
+                } />
+                <Route path="success" element={<Success />} />
+              </Route>
+            </Routes>
+          </Layout>
+        </SubscriptionProvider>
+      </CartProvider>
+    </HashRouter>
   );
 };
 
