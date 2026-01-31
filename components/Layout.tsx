@@ -9,7 +9,7 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
 
   return (
     <div className="flex flex-col min-h-screen">
-      <header className="sticky top-0 z-50 flex items-center justify-between border-b border-[#ebf3e7] bg-white/80 backdrop-blur-md px-6 py-3 lg:px-10">
+      <header className="sticky top-0 z-50 flex items-center justify-between border-b border-[#ebf3e7] bg-white backdrop-blur-md px-6 py-3 lg:px-10">
         <div className="flex items-center gap-4">
           <Link to="/" className="flex items-center gap-2">
             <img src="/logo.png" alt="Pulp Fiction Logo" className="h-10 w-10 object-cover rounded-full" />
@@ -24,8 +24,9 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
           </nav>
         </div>
 
-        <div className="flex gap-3">
-          <button className="hidden sm:flex items-center justify-center size-10 rounded-full bg-[#ebf3e7] hover:bg-primary/20 transition-colors text-gray-800">
+        {/* Desktop Cart - Only visible on desktop */}
+        <div className="hidden lg:flex gap-3">
+          <button className="flex items-center justify-center size-10 rounded-full bg-[#ebf3e7] hover:bg-primary/20 transition-colors text-gray-800">
             <span className="material-symbols-outlined text-[20px]">search</span>
           </button>
           <Link to="/cart" className="relative flex items-center justify-center size-10 rounded-full bg-[#ebf3e7] hover:bg-primary/20 transition-colors text-gray-800">
@@ -36,30 +37,16 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
               </span>
             )}
           </Link>
-          <button
-            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-            className="md:hidden flex items-center justify-center size-10 rounded-full bg-[#ebf3e7] hover:bg-primary/20 transition-colors text-gray-800"
-          >
-            <span className="material-symbols-outlined text-[20px]">{isMobileMenuOpen ? 'close' : 'menu'}</span>
-          </button>
         </div>
       </header>
 
-      {/* Mobile Menu */}
-      {isMobileMenuOpen && (
-        <div className="md:hidden bg-white border-b border-[#ebf3e7] p-4 absolute top-16 left-0 w-full z-40 shadow-lg">
-          <nav className="flex flex-col gap-4">
-            <Link to="/shop" className="text-base font-medium text-gray-900" onClick={() => setIsMobileMenuOpen(false)}>Shop</Link>
-            <Link to="/our-story" className="text-base font-medium text-gray-900" onClick={() => setIsMobileMenuOpen(false)}>Our Story</Link>
-          </nav>
-        </div>
-      )}
 
-      <main className="flex-1 w-full max-w-[1440px] mx-auto p-4 lg:p-8">
+      <main className="flex-1 w-full max-w-[1440px] mx-auto p-4 lg:p-8 pb-24 lg:pb-8">
         {children}
       </main>
 
-      <footer className="mt-20 border-t border-[#ebf3e7] bg-surface-light py-12">
+      {/* Desktop Footer */}
+      <footer className="hidden lg:block mt-20 border-t border-[#ebf3e7] bg-surface-light py-12">
         <div className="w-full max-w-[1440px] mx-auto px-6 lg:px-10">
           <div className="flex flex-col md:flex-row justify-between gap-10">
             <div className="max-w-sm">
@@ -106,6 +93,60 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
           </div>
         </div>
       </footer>
+
+      {/* Mobile Bottom Navigation */}
+      <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-50">
+        <div className="flex items-center justify-around h-16">
+          {/* Home */}
+          <Link
+            to="/"
+            className={`flex flex-col items-center justify-center flex-1 h-full transition-colors ${location.pathname === '/' ? 'text-gray-900' : 'text-gray-400'
+              }`}
+          >
+            <span className={`material-symbols-outlined text-2xl mb-1 ${location.pathname === '/' ? 'filled' : ''
+              }`}>home</span>
+            <span className="text-xs font-medium">Home</span>
+            {location.pathname === '/' && (
+              <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-12 h-1 bg-gray-900 rounded-t-full"></div>
+            )}
+          </Link>
+
+          {/* Categories */}
+          <Link
+            to="/shop"
+            className={`flex flex-col items-center justify-center flex-1 h-full transition-colors ${location.pathname === '/shop' ? 'text-gray-900' : 'text-gray-400'
+              }`}
+          >
+            <span className={`material-symbols-outlined text-2xl mb-1 ${location.pathname === '/shop' ? 'filled' : ''
+              }`}>grid_view</span>
+            <span className="text-xs font-medium">Categories</span>
+            {location.pathname === '/shop' && (
+              <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-12 h-1 bg-gray-900 rounded-t-full"></div>
+            )}
+          </Link>
+
+          {/* Reorder / Cart */}
+          <Link
+            to="/cart"
+            className={`flex flex-col items-center justify-center flex-1 h-full transition-colors relative ${location.pathname === '/cart' ? 'text-gray-900' : 'text-gray-400'
+              }`}
+          >
+            <div className="relative">
+              <span className={`material-symbols-outlined text-2xl mb-1 ${location.pathname === '/cart' ? 'filled' : ''
+                }`}>shopping_cart</span>
+              {itemCount > 0 && (
+                <span className="absolute -top-1 -right-2 size-4 bg-primary rounded-full flex items-center justify-center text-[10px] font-bold text-black">
+                  {itemCount}
+                </span>
+              )}
+            </div>
+            <span className="text-xs font-medium">Cart</span>
+            {location.pathname === '/cart' && (
+              <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-12 h-1 bg-gray-900 rounded-t-full"></div>
+            )}
+          </Link>
+        </div>
+      </nav>
     </div>
   );
 };
