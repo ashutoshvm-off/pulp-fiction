@@ -295,10 +295,10 @@ export const Shop: React.FC = () => {
           </div>
 
           {/* Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 gap-4 lg:gap-6">
             {filteredProducts.map(product => (
               <div key={product.id} className="group relative flex flex-col rounded-xl bg-surface-light border border-gray-100 hover:border-[#d7e7cf] shadow-sm hover:shadow-lg transition-all duration-300 overflow-hidden">
-                <div className="relative aspect-[3/4] bg-gray-50 flex items-center justify-center p-6">
+                <div className="relative aspect-[3/4] bg-gray-50 flex items-center justify-center p-3">
                   <Link to={`/product/${product.id}`} className="absolute inset-0 z-0"></Link>
                   {product.isBestSeller && (
                     <div className="absolute top-0 left-0 z-10 bg-[#e67a00] text-white px-3 py-1 rounded-br-lg text-xs font-bold uppercase tracking-wide">
@@ -308,7 +308,7 @@ export const Shop: React.FC = () => {
                   <img src={product.image} alt={product.name} className="h-full w-full object-contain mix-blend-multiply transition-transform duration-500 group-hover:scale-105 pointer-events-none" />
                 </div>
 
-                <div className="p-4 flex flex-col gap-2 flex-1">
+                <div className="p-3 flex flex-col gap-1 flex-1">
                   <Link to={`/product/${product.id}`} className="font-bold text-lg text-gray-900 hover:text-primary transition-colors line-clamp-2">
                     {product.name}
                   </Link>

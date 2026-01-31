@@ -38,10 +38,10 @@ export const Home: React.FC = () => {
           </Link>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6">
           {trendingProducts.map(product => (
             <Link to={`/product/${product.id}`} key={product.id} className="group relative flex flex-col rounded-xl bg-surface-light shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 overflow-hidden">
-              <div className="relative aspect-[3/4] bg-gray-50 flex items-center justify-center p-6">
+              <div className="relative aspect-[3/4] bg-gray-50 flex items-center justify-center p-3">
                 {product.isBestSeller && (
                   <div className="absolute top-3 left-3 z-10">
                     <span className="px-2 py-1 bg-white/90 backdrop-blur text-xs font-bold uppercase tracking-wider rounded-sm text-gray-900">Best Seller</span>
@@ -49,7 +49,7 @@ export const Home: React.FC = () => {
                 )}
                 <img src={product.image} alt={product.name} className="h-full w-full object-contain mix-blend-multiply transition-transform duration-500 group-hover:scale-105" />
               </div>
-              <div className="p-4 flex flex-col gap-1">
+              <div className="p-3 flex flex-col gap-1">
                 <h3 className="font-bold text-lg text-gray-900 group-hover:text-primary transition-colors">{product.name}</h3>
                 <p className="text-sm text-gray-500 line-clamp-2">{product.description}</p>
                 <div className="flex items-center justify-between mt-3">
