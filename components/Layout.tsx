@@ -21,6 +21,7 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
           <nav className="flex gap-6">
             <Link to="/shop" className={`text-sm font-medium transition-colors ${location.pathname === '/shop' ? 'text-primary' : 'text-gray-900 hover:text-primary'}`}>Shop</Link>
             <Link to="/our-story" className={`text-sm font-medium transition-colors ${location.pathname === '/our-story' ? 'text-primary' : 'text-gray-900 hover:text-primary'}`}>Our Story</Link>
+            <Link to="/profile" className={`text-sm font-medium transition-colors ${location.pathname === '/profile' ? 'text-primary' : 'text-gray-900 hover:text-primary'}`}>Profile</Link>
           </nav>
         </div>
 
@@ -125,7 +126,21 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
             )}
           </Link>
 
-          {/* Reorder / Cart */}
+          {/* Profile */}
+          <Link
+            to="/profile"
+            className={`flex flex-col items-center justify-center flex-1 h-full transition-colors ${location.pathname === '/profile' ? 'text-gray-900' : 'text-gray-400'
+              }`}
+          >
+            <span className={`material-symbols-outlined text-2xl mb-1 ${location.pathname === '/profile' ? 'filled' : ''
+              }`}>account_circle</span>
+            <span className="text-xs font-medium">Profile</span>
+            {location.pathname === '/profile' && (
+              <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-12 h-1 bg-gray-900 rounded-t-full"></div>
+            )}
+          </Link>
+
+          {/* Cart */}
           <Link
             to="/cart"
             className={`flex flex-col items-center justify-center flex-1 h-full transition-colors relative ${location.pathname === '/cart' ? 'text-gray-900' : 'text-gray-400'
