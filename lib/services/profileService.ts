@@ -37,8 +37,12 @@ export const getCurrentUserProfile = async (): Promise<UserProfile | null> => {
 
     const { data: { user }, error: userError } = await supabase.auth.getUser();
     
-    if (userError || !user) {
-        console.error('Error getting current user:', userError);
+    if (userError) {
+        // Throw the error so it can be handled by the caller
+        throw userError;
+    }
+    
+    if (!user) {
         return null;
     }
 
@@ -129,6 +133,40 @@ export const updateProfile = async (updates: Partial<UserProfile>): Promise<User
 
     if (error) {
         console.error('Error updating profile:', error);
+        throw error;
+    }
+
+    return data;
+};
+
+/**
+ * Upsert user profile (create or update)
+ */
+export const upsertProfile = async (profile: UserProfile): Promise<UserProfile> => {
+    if (!isSupabaseConfigured()) {
+        throw new Error('Supabase not configured');
+    }
+
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    
+    if (userError || !user) {
+        throw new Error('User not authenticated');
+    }
+
+    const profileData = {
+        id: user.id,
+        ...profile,
+        updated_at: new Date().toISOString()
+    };
+
+    const { data, error } = await supabase
+        .from('profiles')
+        .upsert(profileData)
+        .select()
+        .single();
+
+    if (error) {
+        console.error('Error upserting profile:', error);
         throw error;
     }
 

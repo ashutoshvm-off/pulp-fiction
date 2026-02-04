@@ -105,6 +105,12 @@ CREATE INDEX IF NOT EXISTS idx_password_reset_codes_expires ON password_reset_co
 -- Allow anonymous access for password reset (needed before user is authenticated)
 ALTER TABLE password_reset_codes ENABLE ROW LEVEL SECURITY;
 
+-- Drop existing policies if they exist
+DROP POLICY IF EXISTS "Allow insert for password reset" ON password_reset_codes;
+DROP POLICY IF EXISTS "Allow select for password reset" ON password_reset_codes;
+DROP POLICY IF EXISTS "Allow update for password reset" ON password_reset_codes;
+DROP POLICY IF EXISTS "Allow delete for password reset" ON password_reset_codes;
+
 -- Public policies for password reset (anonymous access needed)
 CREATE POLICY "Allow insert for password reset" ON password_reset_codes
   FOR INSERT WITH CHECK (true);
@@ -145,12 +151,23 @@ ALTER TABLE subscriptions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE subscription_deliveries ENABLE ROW LEVEL SECURITY;
 
 -- RLS Policies for profiles
+DROP POLICY IF EXISTS "Users can view their own profile" ON profiles;
+DROP POLICY IF EXISTS "Users can update their own profile" ON profiles;
+DROP POLICY IF EXISTS "Users can insert their own profile" ON profiles;
+
 CREATE POLICY "Users can view their own profile" ON profiles
   FOR SELECT USING (auth.uid() = id);
 CREATE POLICY "Users can update their own profile" ON profiles
   FOR UPDATE USING (auth.uid() = id);
+CREATE POLICY "Users can insert their own profile" ON profiles
+  FOR INSERT WITH CHECK (auth.uid() = id);
 
 -- RLS Policies for addresses
+DROP POLICY IF EXISTS "Users can view their own addresses" ON addresses;
+DROP POLICY IF EXISTS "Users can insert addresses" ON addresses;
+DROP POLICY IF EXISTS "Users can update their own addresses" ON addresses;
+DROP POLICY IF EXISTS "Users can delete their own addresses" ON addresses;
+
 CREATE POLICY "Users can view their own addresses" ON addresses
   FOR SELECT USING (profile_id = auth.uid());
 CREATE POLICY "Users can insert addresses" ON addresses
@@ -161,6 +178,10 @@ CREATE POLICY "Users can delete their own addresses" ON addresses
   FOR DELETE USING (profile_id = auth.uid());
 
 -- RLS Policies for orders
+DROP POLICY IF EXISTS "Users can view their own orders" ON orders;
+DROP POLICY IF EXISTS "Users can insert orders" ON orders;
+DROP POLICY IF EXISTS "Users can update their own orders" ON orders;
+
 CREATE POLICY "Users can view their own orders" ON orders
   FOR SELECT USING (profile_id = auth.uid());
 CREATE POLICY "Users can insert orders" ON orders
@@ -169,12 +190,19 @@ CREATE POLICY "Users can update their own orders" ON orders
   FOR UPDATE USING (profile_id = auth.uid());
 
 -- RLS Policies for order_items
+DROP POLICY IF EXISTS "Users can view their order items" ON order_items;
+DROP POLICY IF EXISTS "Users can insert order items" ON order_items;
+
 CREATE POLICY "Users can view their order items" ON order_items
   FOR SELECT USING (order_id IN (SELECT id FROM orders WHERE profile_id = auth.uid()));
 CREATE POLICY "Users can insert order items" ON order_items
   FOR INSERT WITH CHECK (order_id IN (SELECT id FROM orders WHERE profile_id = auth.uid()));
 
 -- RLS Policies for subscriptions
+DROP POLICY IF EXISTS "Users can view their own subscriptions" ON subscriptions;
+DROP POLICY IF EXISTS "Users can insert subscriptions" ON subscriptions;
+DROP POLICY IF EXISTS "Users can update their own subscriptions" ON subscriptions;
+
 CREATE POLICY "Users can view their own subscriptions" ON subscriptions
   FOR SELECT USING (profile_id = auth.uid());
 CREATE POLICY "Users can insert subscriptions" ON subscriptions
@@ -183,6 +211,8 @@ CREATE POLICY "Users can update their own subscriptions" ON subscriptions
   FOR UPDATE USING (profile_id = auth.uid());
 
 -- RLS Policies for subscription_deliveries
+DROP POLICY IF EXISTS "Users can view their subscription deliveries" ON subscription_deliveries;
+
 CREATE POLICY "Users can view their subscription deliveries" ON subscription_deliveries
   FOR SELECT USING (subscription_id IN (SELECT id FROM subscriptions WHERE profile_id = auth.uid()));
 
@@ -190,8 +220,21 @@ CREATE POLICY "Users can view their subscription deliveries" ON subscription_del
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER AS $$
 BEGIN
-  INSERT INTO public.profiles (id, email, full_name)
-  VALUES (new.id, new.email, new.user_metadata->>'full_name');
+  INSERT INTO public.profiles (id, email, full_name, phone)
+  VALUES (
+    new.id, 
+    new.email, 
+    COALESCE(new.raw_user_meta_data->>'full_name', ''),
+    COALESCE(new.raw_user_meta_data->>'phone', '')
+  )
+  ON CONFLICT (id) DO UPDATE SET
+    full_name = COALESCE(EXCLUDED.full_name, profiles.full_name),
+    phone = COALESCE(EXCLUDED.phone, profiles.phone),
+    updated_at = NOW();
+  RETURN new;
+EXCEPTION WHEN OTHERS THEN
+  -- Log error but don't fail the signup
+  RAISE WARNING 'Failed to create profile for user %: %', new.id, SQLERRM;
   RETURN new;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;

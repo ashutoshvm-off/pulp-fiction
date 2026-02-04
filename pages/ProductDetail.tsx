@@ -1,22 +1,41 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { PRODUCTS, REVIEWS } from '../data';
 import { useCart } from '../context/CartContext';
 import { Product } from '../types';
+import { getProduct } from '../lib/services/productService';
 
 export const ProductDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const { addToCart } = useCart();
-  const [product, setProduct] = useState<Product | undefined>(undefined);
+  const [product, setProduct] = useState<Product | null>(null);
+  const [loading, setLoading] = useState(true);
   const [quantity, setQuantity] = useState(1);
   const [selectedSize, setSelectedSize] = useState('12oz');
 
   useEffect(() => {
-    const found = PRODUCTS.find(p => p.id === id);
-    setProduct(found);
+    const loadProduct = async () => {
+      if (!id) return;
+      setLoading(true);
+      try {
+        const dbProduct = await getProduct(id);
+        setProduct(dbProduct);
+      } catch (error) {
+        console.error('Failed to load product:', error);
+        setProduct(null);
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadProduct();
   }, [id]);
 
-  if (!product) return <div className="p-10 text-center">Loading...</div>;
+  if (loading) return <div className="p-10 text-center">Loading...</div>;
+  if (!product) return (
+    <div className="p-10 text-center">
+      <h2 className="text-2xl font-bold text-gray-900 mb-4">Product not found</h2>
+      <Link to="/shop" className="text-primary hover:underline">Back to Shop</Link>
+    </div>
+  );
 
   return (
     <div className="animate-fade-in">
@@ -47,15 +66,13 @@ export const ProductDetail: React.FC = () => {
                 </div>
               )}
             </div>
-            {/* Thumbnails */}
+            {/* Thumbnails - just show main product image */}
             <div className="grid grid-cols-4 gap-4">
-              {[product.image, ...PRODUCTS.slice(0, 2).map(p => p.image)].map((img, i) => (
-                <button key={i} className={`aspect-square rounded-xl bg-[#ebf3e7] dark:bg-[#1f2e1a] overflow-hidden border-2 ${i === 0 ? 'border-primary' : 'border-transparent hover:border-primary/50'} p-2 transition-colors`}>
-                  <img src={img} className="w-full h-full object-contain mix-blend-multiply dark:mix-blend-normal" />
-                </button>
-              ))}
+              <button className="aspect-square rounded-xl bg-[#ebf3e7] dark:bg-[#1f2e1a] overflow-hidden border-2 border-primary p-2 transition-colors">
+                <img src={product.image} className="w-full h-full object-contain mix-blend-multiply dark:mix-blend-normal" />
+              </button>
               <div className="aspect-square rounded-xl bg-[#f9fcf8] dark:bg-surface-dark overflow-hidden border-2 border-transparent flex items-center justify-center text-text-muted cursor-pointer hover:bg-[#ebf3e7] dark:hover:bg-[#2a3f23] transition-colors">
-                <span className="material-symbols-outlined">play_circle</span>
+                <span className="material-symbols-outlined">zoom_in</span>
               </div>
             </div>
           </div>
@@ -155,29 +172,13 @@ export const ProductDetail: React.FC = () => {
         </div>
       </section>
 
-      {/* Reviews */}
+      {/* Reviews - Placeholder for future database reviews */}
       <section className="py-16 bg-white dark:bg-surface-dark">
         <div className="max-w-[1280px] mx-auto px-4 sm:px-6 lg:px-8">
           <h3 className="text-2xl font-bold text-text-main dark:text-white mb-8 font-serif">Customer Reviews</h3>
-          <div className="grid md:grid-cols-2 gap-6">
-            {REVIEWS.map(review => (
-              <div key={review.id} className="bg-[#f9fcf8] dark:bg-background-dark p-6 rounded-2xl border border-[#ebf3e7] dark:border-[#2a3f23]">
-                <div className="flex items-center gap-3 mb-4">
-                  <img src={review.avatar} alt={review.author} className="w-10 h-10 rounded-full object-cover" />
-                  <div>
-                    <h4 className="font-bold text-text-main dark:text-white text-sm">{review.author}</h4>
-                    <div className="flex gap-0.5 text-primary text-xs">
-                      {[...Array(5)].map((_, i) => (
-                        <span key={i} className="material-symbols-outlined text-[14px] filled">star</span>
-                      ))}
-                    </div>
-                  </div>
-                  <span className="ml-auto text-xs text-text-muted">{review.date}</span>
-                </div>
-                <h5 className="font-bold text-text-main dark:text-white text-sm mb-2">{review.title}</h5>
-                <p className="text-sm text-text-muted dark:text-gray-400">{review.content}</p>
-              </div>
-            ))}
+          <div className="text-center py-12">
+            <span className="material-symbols-outlined text-6xl text-gray-300 mb-4">rate_review</span>
+            <p className="text-text-muted dark:text-gray-400">No reviews yet. Be the first to review this product!</p>
           </div>
         </div>
       </section>

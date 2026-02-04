@@ -1,57 +1,24 @@
 import React, { useState, useEffect } from 'react';
-import { GoogleGenAI, Type } from "@google/genai";
-import { PRODUCTS } from '../data';
 import { Product } from '../types';
 import { Link } from 'react-router-dom';
+import { fetchProducts } from '../lib/services/productService';
 
 export const OurStory: React.FC = () => {
   const [recommendedProducts, setRecommendedProducts] = useState<Product[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     const fetchRecommendations = async () => {
       setIsLoading(true);
       try {
-        const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-        const productList = PRODUCTS.map(p => ({ id: p.id, name: p.name, description: p.description, category: p.category }));
-
-        const story = `
-          Pulp Fiction started in a small kitchen with a big dream: to make healthy living accessible, delicious, and sustainable. 
-          We believe in the power of raw, organic ingredients to heal and energize the body. 
-          Our commitment extends beyond just juice; it's about a lifestyle that respects nature and nurtures the self. 
-          We partner with local farmers who practice regenerative agriculture, ensuring every bottle is packed with vitality while caring for the earth.
-          From our detoxifying greens to our immunity-boosting shots, every product is crafted with intention.
-        `;
-
-        const response = await ai.models.generateContent({
-          model: 'gemini-3-flash-preview',
-          contents: `Here is our product catalog: ${JSON.stringify(productList)}. 
-                     Our brand story is: "${story}".
-                     Based on this story, identify the 3 products that best embody our values of detox, immunity, and raw energy.
-                     Return only the product IDs in a JSON format.`,
-          config: {
-            responseMimeType: "application/json",
-            responseSchema: {
-              type: Type.OBJECT,
-              properties: {
-                recommendedProductIds: {
-                  type: Type.ARRAY,
-                  items: { type: Type.STRING }
-                }
-              }
-            }
-          }
-        });
-
-        const json = JSON.parse(response.text || '{}');
-        const ids = json.recommendedProductIds || [];
-        const recommended = PRODUCTS.filter(p => ids.includes(p.id));
-        setRecommendedProducts(recommended);
-
+        // Fetch products from database and show first 3 as recommendations
+        const products = await fetchProducts();
+        // Filter to show best sellers or first 3
+        const recommended = products.filter(p => p.isBestSeller).slice(0, 3);
+        setRecommendedProducts(recommended.length > 0 ? recommended : products.slice(0, 3));
       } catch (error) {
         console.error("Failed to get recommendations", error);
-        // Fallback
-        setRecommendedProducts(PRODUCTS.slice(0, 3));
+        setRecommendedProducts([]);
       } finally {
         setIsLoading(false);
       }

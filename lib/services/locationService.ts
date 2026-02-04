@@ -105,3 +105,50 @@ export const getUserLocationWithAddress = async (): Promise<LocationData> => {
     const locationData = await reverseGeocode(latitude, longitude);
     return locationData;
 };
+
+/**
+ * Get address components from coordinates (for address form)
+ */
+export const getAddressFromCoordinates = async (latitude: number, longitude: number) => {
+    try {
+        const response = await fetch(
+            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&addressdetails=1`,
+            {
+                headers: {
+                    'Accept': 'application/json',
+                    'User-Agent': 'PulpFiction-App'
+                }
+            }
+        );
+
+        if (!response.ok) {
+            throw new Error('Failed to fetch address');
+        }
+
+        const data = await response.json();
+        const address = data.address || {};
+
+        // Extract road/street info
+        const streetParts = [];
+        if (address.house_number) streetParts.push(address.house_number);
+        if (address.road) streetParts.push(address.road);
+        if (address.neighbourhood) streetParts.push(address.neighbourhood);
+        
+        // Extract secondary address info
+        const secondaryParts = [];
+        if (address.suburb) secondaryParts.push(address.suburb);
+        if (address.locality) secondaryParts.push(address.locality);
+
+        return {
+            address_line1: streetParts.join(', ') || address.road || '',
+            address_line2: secondaryParts.join(', ') || '',
+            city: address.city || address.town || address.village || address.county || '',
+            state: address.state || '',
+            postal_code: address.postcode || '',
+            country: address.country || 'India'
+        };
+    } catch (error) {
+        console.error('Error getting address from coordinates:', error);
+        return null;
+    }
+};

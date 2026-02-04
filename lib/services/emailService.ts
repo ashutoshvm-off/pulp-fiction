@@ -1,13 +1,21 @@
-import { supabase, isSupabaseConfigured } from '../supabase';
-
 /**
  * Email Service for Pulp Fiction
  * 
- * This service sends emails via Supabase Edge Functions.
- * For production, deploy the Edge Function in /supabase/functions/send-email
+ * Uses Supabase Edge Function with Gmail SMTP
+ * The Edge Function handles the actual SMTP connection securely on the server
  * 
- * Development mode will log emails to console instead of sending.
+ * To deploy the Edge Function:
+ * 1. npx supabase login
+ * 2. cd supabase && npx supabase functions deploy send-email --project-ref xvahbpqxcpozvyqxnnbx
+ * 3. Set secrets:
+ *    npx supabase secrets set SMTP_HOST=smtp.gmail.com
+ *    npx supabase secrets set SMTP_PORT=587
+ *    npx supabase secrets set SMTP_USER=contactpulpfiction@gmail.com
+ *    npx supabase secrets set SMTP_PASSWORD=qwlesghdewdjsiyb
+ *    npx supabase secrets set FROM_EMAIL="Pulp Fiction <contactpulpfiction@gmail.com>"
  */
+
+import { supabase } from '../supabase';
 
 export interface OrderItem {
     name: string;
@@ -15,13 +23,7 @@ export interface OrderItem {
     price: number;
 }
 
-type EmailType = 'welcome' | 'otp' | 'order_confirmation' | 'subscription_confirmation';
-
-interface EmailData {
-    [key: string]: unknown;
-}
-
-const isDevelopment = import.meta.env.DEV;
+type EmailType = 'welcome' | 'password_reset' | 'order_confirmation' | 'subscription_confirmation';
 
 /**
  * Send email via Supabase Edge Function
@@ -29,36 +31,31 @@ const isDevelopment = import.meta.env.DEV;
 const sendEmail = async (
     type: EmailType,
     to: string,
-    data: EmailData
+    data: Record<string, unknown>
 ): Promise<{ success: boolean; error?: string }> => {
-    // In development, just log the email
-    if (isDevelopment) {
-        console.log('📧 [DEV MODE] Email would be sent:');
-        console.log('  Type:', type);
-        console.log('  To:', to);
-        console.log('  Data:', JSON.stringify(data, null, 2));
-        return { success: true };
-    }
-
-    if (!isSupabaseConfigured()) {
-        console.error('Supabase not configured for email sending');
-        return { success: false, error: 'Email service not configured' };
-    }
-
+    console.log('📧 Sending email via Supabase Edge Function...');
+    console.log('📧 Type:', type, '| To:', to);
+    
     try {
         const { data: result, error } = await supabase.functions.invoke('send-email', {
             body: { type, to, data },
         });
 
         if (error) {
-            console.error('Email sending error:', error);
+            console.error('❌ Edge function error:', error);
             return { success: false, error: error.message };
         }
 
+        if (!result?.success) {
+            console.error('❌ Email sending failed:', result?.error);
+            return { success: false, error: result?.error || 'Unknown error' };
+        }
+
+        console.log('✅ Email sent successfully via', result.provider || 'SMTP');
         return { success: true };
-    } catch (err) {
-        console.error('Failed to send email:', err);
-        return { success: false, error: 'Failed to send email' };
+    } catch (err: any) {
+        console.error('❌ Failed to send email:', err);
+        return { success: false, error: err.message || 'Failed to send email' };
     }
 };
 
@@ -73,14 +70,36 @@ export const sendWelcomeEmail = async (
 };
 
 /**
- * Send OTP code for password reset
+ * Send password reset email with reset link
+ */
+export const sendPasswordResetEmail = async (
+    email: string,
+    resetLink: string,
+    fullName?: string
+): Promise<{ success: boolean; error?: string }> => {
+    return sendEmail('password_reset', email, { 
+        resetLink,
+        fullName: fullName || 'User' 
+    });
+};
+
+/**
+ * Send password reset code (alias for backward compatibility)
+ * @deprecated Use sendPasswordResetEmail instead
  */
 export const sendPasswordResetCode = async (
     email: string,
     code: string,
     fullName?: string
 ): Promise<{ success: boolean; error?: string }> => {
-    return sendEmail('otp', email, { code, fullName: fullName || '' });
+    // Generate a reset link with the code
+    const baseUrl = typeof window !== 'undefined' ? window.location.origin : 'https://pulp-fiction-zeta.vercel.app';
+    const resetLink = `${baseUrl}/reset-password?code=${code}`;
+    return sendEmail('password_reset', email, { 
+        resetLink,
+        code,
+        fullName: fullName || 'User' 
+    });
 };
 
 /**
@@ -121,6 +140,7 @@ export const sendSubscriptionConfirmationEmail = async (
 
 export default {
     sendWelcomeEmail,
+    sendPasswordResetEmail,
     sendPasswordResetCode,
     sendOrderConfirmationEmail,
     sendSubscriptionConfirmationEmail,

@@ -9,6 +9,7 @@ export const SignUp: React.FC = () => {
     const [formData, setFormData] = useState({
         fullName: '',
         email: '',
+        phone: '',
         password: '',
         confirmPassword: '',
     });
@@ -25,7 +26,7 @@ export const SignUp: React.FC = () => {
 
     const validateForm = () => {
         if (!formData.fullName || !formData.email || !formData.password || !formData.confirmPassword) {
-            setError('Please fill in all fields');
+            setError('Please fill in all required fields');
             return false;
         }
 
@@ -45,6 +46,11 @@ export const SignUp: React.FC = () => {
             return false;
         }
 
+        if (formData.phone && !/^[0-9]{10}$/.test(formData.phone.replace(/[\s-]/g, ''))) {
+            setError('Please enter a valid 10-digit phone number');
+            return false;
+        }
+
         return true;
     };
 
@@ -59,18 +65,22 @@ export const SignUp: React.FC = () => {
 
         setLoading(true);
 
-        const { error: signUpError } = await signUp(formData.email, formData.password, formData.fullName);
+        const { error: signUpError } = await signUp(formData.email, formData.password, formData.fullName, formData.phone);
 
         if (signUpError) {
             setError(signUpError.message);
             setLoading(false);
         } else {
-            // Send welcome email
-            await sendWelcomeEmail(formData.email, formData.fullName);
+            // Send welcome email via SMTP
+            sendWelcomeEmail(formData.email, formData.fullName);
             
             setSuccess(true);
             setLoading(false);
-            // Don't redirect - show verification message instead
+            
+            // Redirect to home after a brief success message
+            setTimeout(() => {
+                navigate('/');
+            }, 2000);
         }
     };
 
@@ -94,10 +104,10 @@ export const SignUp: React.FC = () => {
                     )}
 
                     {success && (
-                        <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg text-blue-800 text-sm">
-                            <p className="font-semibold mb-2">Check your email!</p>
-                            <p>We've sent a verification link to <strong>{formData.email}</strong>. Please click it to verify your email and complete signup.</p>
-                            <p className="mt-3 text-xs">Didn't receive an email? Check your spam folder or contact support.</p>
+                        <div className="mb-4 p-4 bg-green-50 border border-green-200 rounded-lg text-green-800 text-sm">
+                            <p className="font-semibold mb-2">Account created successfully! 🎉</p>
+                            <p>Welcome to Pulp Fiction, <strong>{formData.fullName}</strong>! We've sent a welcome email to <strong>{formData.email}</strong>.</p>
+                            <p className="mt-3 text-xs">Redirecting you to the homepage...</p>
                         </div>
                     )}
 
@@ -106,7 +116,7 @@ export const SignUp: React.FC = () => {
                         {/* Full Name Field */}
                         <div>
                             <label htmlFor="fullName" className="block text-sm font-medium text-gray-700 mb-2">
-                                Full Name
+                                Full Name <span className="text-red-500">*</span>
                             </label>
                             <input
                                 type="text"
@@ -123,7 +133,7 @@ export const SignUp: React.FC = () => {
                         {/* Email Field */}
                         <div>
                             <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
-                                Email Address
+                                Email Address <span className="text-red-500">*</span>
                             </label>
                             <input
                                 type="email"
@@ -133,6 +143,23 @@ export const SignUp: React.FC = () => {
                                 onChange={handleChange}
                                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all outline-none"
                                 placeholder="you@example.com"
+                                disabled={loading}
+                            />
+                        </div>
+
+                        {/* Phone Number Field */}
+                        <div>
+                            <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-2">
+                                Phone Number <span className="text-gray-400 text-xs">(Optional)</span>
+                            </label>
+                            <input
+                                type="tel"
+                                id="phone"
+                                name="phone"
+                                value={formData.phone}
+                                onChange={handleChange}
+                                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all outline-none"
+                                placeholder="9876543210"
                                 disabled={loading}
                             />
                         </div>

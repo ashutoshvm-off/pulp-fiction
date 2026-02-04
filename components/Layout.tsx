@@ -1,11 +1,16 @@
 import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useCart } from '../context/CartContext';
+import { useAuth } from '../context/AuthContext';
 
 export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { itemCount } = useCart();
+  const { user } = useAuth();
   const location = useLocation();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
+  // Check if user is admin
+  const isAdmin = user?.email === 'admin@pulpfiction.com' || user?.email === 'superadmin@pulpfiction.com';
 
   return (
     <div className="flex flex-col min-h-screen">
@@ -26,7 +31,12 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
         </div>
 
         {/* Desktop Cart - Only visible on desktop */}
-        <div className="hidden lg:flex gap-3">
+        <div className="hidden lg:flex gap-3 items-center">
+          {isAdmin && (
+            <Link to="/admin" className="flex items-center justify-center size-10 rounded-full bg-orange-100 hover:bg-orange-200 transition-colors text-orange-600" title="Admin Dashboard">
+              <span className="material-symbols-outlined text-[20px]">admin_panel_settings</span>
+            </Link>
+          )}
           <button className="flex items-center justify-center size-10 rounded-full bg-[#ebf3e7] hover:bg-primary/20 transition-colors text-gray-800">
             <span className="material-symbols-outlined text-[20px]">search</span>
           </button>
@@ -126,20 +136,6 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
             )}
           </Link>
 
-          {/* Profile */}
-          <Link
-            to="/profile"
-            className={`flex flex-col items-center justify-center flex-1 h-full transition-colors ${location.pathname === '/profile' ? 'text-gray-900' : 'text-gray-400'
-              }`}
-          >
-            <span className={`material-symbols-outlined text-2xl mb-1 ${location.pathname === '/profile' ? 'filled' : ''
-              }`}>account_circle</span>
-            <span className="text-xs font-medium">Profile</span>
-            {location.pathname === '/profile' && (
-              <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-12 h-1 bg-gray-900 rounded-t-full"></div>
-            )}
-          </Link>
-
           {/* Cart */}
           <Link
             to="/cart"
@@ -157,6 +153,20 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
             </div>
             <span className="text-xs font-medium">Cart</span>
             {location.pathname === '/cart' && (
+              <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-12 h-1 bg-gray-900 rounded-t-full"></div>
+            )}
+          </Link>
+
+          {/* Profile */}
+          <Link
+            to="/profile"
+            className={`flex flex-col items-center justify-center flex-1 h-full transition-colors ${location.pathname === '/profile' ? 'text-gray-900' : 'text-gray-400'
+              }`}
+          >
+            <span className={`material-symbols-outlined text-2xl mb-1 ${location.pathname === '/profile' ? 'filled' : ''
+              }`}>account_circle</span>
+            <span className="text-xs font-medium">Profile</span>
+            {location.pathname === '/profile' && (
               <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-12 h-1 bg-gray-900 rounded-t-full"></div>
             )}
           </Link>

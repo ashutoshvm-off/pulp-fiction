@@ -23,6 +23,8 @@ import { VerifyEmail } from './pages/auth/VerifyEmail';
 import { ResetPassword } from './pages/auth/ResetPassword';
 import { VerifyOTP } from './pages/auth/VerifyOTP';
 import { NewPassword } from './pages/auth/NewPassword';
+import { Admin } from './pages/Admin';
+import { AdminLogin } from './pages/AdminLogin';
 
 const App: React.FC = () => {
   return (
@@ -38,6 +40,10 @@ const App: React.FC = () => {
                   <Route path="/our-story" element={<OurStory />} />
                   <Route path="/product/:id" element={<ProductDetail />} />
                   <Route path="/cart" element={<Cart />} />
+                  
+                  {/* Admin Routes */}
+                  <Route path="/admin-login" element={<AdminLogin />} />
+                  <Route path="/admin" element={<Admin />} />
 
                   {/* Auth Routes */}
                   <Route path="/login" element={<Login />} />

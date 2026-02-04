@@ -1,11 +1,29 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useSubscription } from '../../context/SubscriptionContext';
-import { PRODUCTS } from '../../data';
 import { Link } from 'react-router-dom';
+import { fetchProducts } from '../../lib/services/productService';
+import { Product } from '../../types';
 
 export const BuildBox: React.FC = () => {
   const { boxItems, addToBox, removeFromBox, itemsCount, BOX_CAPACITY } = useSubscription();
+  const [products, setProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
   const progress = (itemsCount / BOX_CAPACITY) * 100;
+
+  useEffect(() => {
+    const loadProducts = async () => {
+      try {
+        const dbProducts = await fetchProducts();
+        setProducts(dbProducts);
+      } catch (error) {
+        console.error('Failed to load products:', error);
+        setProducts([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadProducts();
+  }, []);
 
   return (
     <div className="flex flex-col lg:flex-row gap-8 relative items-start">
@@ -23,7 +41,18 @@ export const BuildBox: React.FC = () => {
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6">
-          {PRODUCTS.filter(p => p.category !== 'bundle').map(product => {
+          {loading ? (
+            <div className="col-span-full text-center py-12">
+              <span className="material-symbols-outlined text-4xl text-gray-400 animate-spin">progress_activity</span>
+              <p className="text-gray-500 mt-2">Loading products...</p>
+            </div>
+          ) : products.length === 0 ? (
+            <div className="col-span-full text-center py-12">
+              <span className="material-symbols-outlined text-6xl text-gray-300 mb-4">inventory_2</span>
+              <p className="text-gray-500">No products available</p>
+            </div>
+          ) : (
+            products.filter(p => p.category !== 'bundle').map(product => {
             const inBox = boxItems.find(i => i.id === product.id);
             const qty = inBox?.quantity || 0;
             return (
@@ -59,7 +88,8 @@ export const BuildBox: React.FC = () => {
                  </div>
               </div>
             );
-          })}
+          })
+        )}
         </div>
       </div>
 

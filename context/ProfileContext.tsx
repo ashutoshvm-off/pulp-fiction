@@ -1,7 +1,8 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import { UserProfile, Address } from '../types';
-import { getProfileByEmail, upsertProfile, getAddressesByProfileId } from '../lib/services/profileService';
+import { getProfileByEmail, upsertProfile, getAddressesByProfileId, getCurrentUserProfile } from '../lib/services/profileService';
 import { isSupabaseConfigured } from '../lib/supabase';
+import { useAuth } from './AuthContext';
 
 interface ProfileContextType {
     profile: UserProfile | null;
@@ -18,28 +19,13 @@ interface ProfileContextType {
 const ProfileContext = createContext<ProfileContextType | undefined>(undefined);
 
 export const ProfileProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+    const { user, loading: authLoading } = useAuth();
     const [profile, setProfile] = useState<UserProfile | null>(null);
     const [addresses, setAddresses] = useState<Address[]>([]);
     const [isLoading, setIsLoading] = useState(false);
     const [isConfigured] = useState(isSupabaseConfigured());
 
-    // Load profile from localStorage on mount
-    useEffect(() => {
-        const savedProfile = localStorage.getItem('userProfile');
-        if (savedProfile) {
-            try {
-                const parsed = JSON.parse(savedProfile);
-                setProfile(parsed);
-                if (parsed.id && isConfigured) {
-                    loadAddresses(parsed.id);
-                }
-            } catch (error) {
-                console.error('Error parsing saved profile:', error);
-            }
-        }
-    }, [isConfigured]);
-
-    const loadAddresses = async (profileId: string) => {
+    const loadAddresses = useCallback(async (profileId: string) => {
         if (!isConfigured) return;
 
         try {
@@ -48,7 +34,50 @@ export const ProfileProvider: React.FC<{ children: ReactNode }> = ({ children })
         } catch (error) {
             console.error('Error loading addresses:', error);
         }
-    };
+    }, [isConfigured]);
+
+    // Load profile when auth user changes
+    useEffect(() => {
+        const loadUserProfile = async () => {
+            if (authLoading) return;
+
+            if (user && isConfigured) {
+                setIsLoading(true);
+                try {
+                    const fetchedProfile = await getCurrentUserProfile();
+                    if (fetchedProfile) {
+                        setProfile(fetchedProfile);
+                        localStorage.setItem('userProfile', JSON.stringify(fetchedProfile));
+                        if (fetchedProfile.id) {
+                            await loadAddresses(fetchedProfile.id);
+                        }
+                    } else {
+                        // Profile fetch failed, clear local state
+                        setProfile(null);
+                        setAddresses([]);
+                        localStorage.removeItem('userProfile');
+                    }
+                } catch (error: any) {
+                    console.error('Error loading user profile:', error);
+                    // If user doesn't exist error, clear everything
+                    if (error?.message?.includes('does not exist') || error?.status === 403) {
+                        setProfile(null);
+                        setAddresses([]);
+                        localStorage.removeItem('userProfile');
+                    }
+                } finally {
+                    setIsLoading(false);
+                }
+            } else if (!user) {
+                // User logged out, clear profile
+                setProfile(null);
+                setAddresses([]);
+                localStorage.removeItem('userProfile');
+            }
+        };
+
+        loadUserProfile();
+    }, [user, authLoading, isConfigured, loadAddresses]);
 
     const loadProfile = async (email: string) => {
         if (!isConfigured) {

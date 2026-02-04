@@ -1,5 +1,4 @@
 import { supabase, isSupabaseConfigured } from '../supabase';
-import { sendOrderConfirmationEmail } from './emailService';
 
 export interface OrderItem {
     id?: string;
@@ -106,32 +105,8 @@ export const createOrder = async (order: Omit<Order, 'id' | 'created_at' | 'upda
         }
     }
 
-    // Fetch user profile to get email for confirmation
-    try {
-        const { data: profile } = await supabase
-            .from('profiles')
-            .select('email, full_name')
-            .eq('id', order.profile_id)
-            .single();
-
-        if (profile) {
-            // Send order confirmation email
-            await sendOrderConfirmationEmail(
-                profile.email,
-                profile.full_name || 'Valued Customer',
-                orderNumber,
-                order.total_amount,
-                items.map(item => ({
-                    name: item.product_name,
-                    quantity: item.quantity,
-                    price: item.subtotal,
-                }))
-            );
-        }
-    } catch (emailError) {
-        console.error('Failed to send order confirmation email:', emailError);
-        // Don't throw - order was created successfully
-    }
+    // Order confirmation email removed - only welcome emails are supported
+    console.log('✅ Order created successfully:', orderNumber);
 
     return {
         ...orderData,
@@ -218,6 +193,11 @@ export const getOrdersByProfileId = async (profileId: string): Promise<Order[]> 
 
     return ordersWithItems;
 };
+
+/**
+ * Alias for getOrdersByProfileId (for easier use)
+ */
+export const getOrdersByUser = getOrdersByProfileId;
 
 /**
  * Update order status

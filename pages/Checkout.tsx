@@ -1,17 +1,25 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useCart } from '../context/CartContext';
 import { Link, useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
+import { useProfile } from '../context/ProfileContext';
 import { getUserLocationWithAddress } from '../lib/services/locationService';
+import { createOrder } from '../lib/services/orderService';
 import type { LocationData } from '../types';
 
 export const Checkout: React.FC = () => {
   const { items, cartTotal, clearCart } = useCart();
+  const { user } = useAuth();
+  const { profile, addresses } = useProfile();
   const navigate = useNavigate();
   const [step, setStep] = useState(1);
   const [isLoadingLocation, setIsLoadingLocation] = useState(false);
   const [locationError, setLocationError] = useState<string>('');
+  const [isPlacingOrder, setIsPlacingOrder] = useState(false);
+  const [orderError, setOrderError] = useState<string>('');
+  const [selectedAddressId, setSelectedAddressId] = useState<string>('');
 
-  // Form state
+  // Form state - pre-filled from profile
   const [formData, setFormData] = useState({
     email: '',
     firstName: '',
@@ -19,10 +27,63 @@ export const Checkout: React.FC = () => {
     address: '',
     city: '',
     state: '',
-    postalCode: ''
+    postalCode: '',
+    phone: ''
   });
 
-  const total = cartTotal + (cartTotal > 500 ? 0 : 50) + (cartTotal * 0.05);
+  // Auto-fill form from profile data
+  useEffect(() => {
+    if (profile) {
+      const nameParts = (profile.full_name || '').split(' ');
+      setFormData(prev => ({
+        ...prev,
+        email: profile.email || prev.email,
+        firstName: nameParts[0] || prev.firstName,
+        lastName: nameParts.slice(1).join(' ') || prev.lastName,
+        phone: profile.phone || prev.phone,
+      }));
+    } else if (user) {
+      const nameParts = (user.user_metadata?.full_name || '').split(' ');
+      setFormData(prev => ({
+        ...prev,
+        email: user.email || prev.email,
+        firstName: nameParts[0] || prev.firstName,
+        lastName: nameParts.slice(1).join(' ') || prev.lastName,
+        phone: user.user_metadata?.phone || prev.phone,
+      }));
+    }
+  }, [profile, user]);
+
+  // Auto-fill address from selected saved address
+  useEffect(() => {
+    if (selectedAddressId && addresses.length > 0) {
+      const selectedAddr = addresses.find(a => a.id === selectedAddressId);
+      if (selectedAddr) {
+        setFormData(prev => ({
+          ...prev,
+          address: selectedAddr.address_line1 + (selectedAddr.address_line2 ? ', ' + selectedAddr.address_line2 : ''),
+          city: selectedAddr.city || '',
+          state: selectedAddr.state || '',
+          postalCode: selectedAddr.postal_code || '',
+        }));
+      }
+    }
+  }, [selectedAddressId, addresses]);
+
+  // Set default address on load
+  useEffect(() => {
+    if (addresses.length > 0 && !selectedAddressId) {
+      const defaultAddr = addresses.find(a => a.is_default) || addresses[0];
+      if (defaultAddr?.id) {
+        setSelectedAddressId(defaultAddr.id);
+      }
+    }
+  }, [addresses, selectedAddressId]);
+
+  // Calculate totals - same as Cart page
+  const shipping = cartTotal > 500 ? 0 : 50;
+  const tax = cartTotal * 0.05; // 5% GST
+  const total = cartTotal + shipping + tax;
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -51,11 +112,48 @@ export const Checkout: React.FC = () => {
     }
   };
 
-  const handlePay = (e: React.FormEvent) => {
+  const handlePay = async (e: React.FormEvent) => {
     e.preventDefault();
-    clearCart();
-    // In a real app, payment processing happens here
-    navigate('/subscription/success'); // Reuse success page
+    
+    if (!user) {
+      setOrderError('Please sign in to place an order');
+      navigate('/auth/login?redirect=/checkout');
+      return;
+    }
+
+    setIsPlacingOrder(true);
+    setOrderError('');
+
+    try {
+      // Create order in database
+      const orderItems = items.map(item => ({
+        product_id: item.id,
+        product_name: item.name,
+        quantity: item.quantity,
+        unit_price: item.price,
+        subtotal: item.price * item.quantity,
+      }));
+
+      await createOrder(
+        {
+          profile_id: user.id,
+          status: 'pending',
+          total_amount: total,
+          payment_method: 'cod',
+          payment_status: 'pending',
+          notes: `Shipping: ${formData.address}, ${formData.city}, ${formData.state} ${formData.postalCode}. Phone: ${formData.phone}`,
+        },
+        orderItems
+      );
+
+      clearCart();
+      navigate('/subscription/success'); // Reuse success page
+    } catch (error: any) {
+      console.error('Order error:', error);
+      setOrderError(error.message || 'Failed to place order. Please try again.');
+    } finally {
+      setIsPlacingOrder(false);
+    }
   };
 
   return (
@@ -98,9 +196,35 @@ export const Checkout: React.FC = () => {
                     className="flex items-center gap-2 px-4 py-2 bg-primary hover:bg-primary-hover text-text-main font-semibold rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed text-sm"
                   >
                     <span className="material-symbols-outlined text-lg">{isLoadingLocation ? 'progress_activity' : 'my_location'}</span>
-                    {isLoadingLocation ? 'Getting Location...' : 'Use My Location'}
+                    {isLoadingLocation ? 'Getting Location...' : 'Use GPS'}
                   </button>
                 </div>
+
+                {orderError && (
+                  <div className="mb-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg text-red-700 dark:text-red-300 text-sm">
+                    {orderError}
+                  </div>
+                )}
+
+                {/* Saved Addresses */}
+                {addresses.length > 0 && (
+                  <div className="mb-6">
+                    <label className="block text-sm font-semibold text-text-main dark:text-gray-300 mb-2">Select Saved Address</label>
+                    <select
+                      value={selectedAddressId}
+                      onChange={(e) => setSelectedAddressId(e.target.value)}
+                      className="block w-full rounded-lg border-gray-200 dark:border-[#2a3f23] bg-white dark:bg-surface-dark py-3 px-4"
+                    >
+                      <option value="">-- Select an address --</option>
+                      {addresses.map((addr) => (
+                        <option key={addr.id} value={addr.id}>
+                          {addr.label?.toUpperCase()}: {addr.address_line1}, {addr.city} {addr.is_default ? '(Default)' : ''}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
                 {locationError && (
                   <div className="mb-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg text-red-700 dark:text-red-300 text-sm">
                     {locationError}
@@ -192,31 +316,52 @@ export const Checkout: React.FC = () => {
               <section className="mb-8 border-t border-[#ebf3e7] dark:border-[#2a3f23] pt-8">
                 <div className="flex items-center gap-3 mb-6">
                   <span className="flex items-center justify-center w-8 h-8 rounded-full bg-[#ebf3e7] dark:bg-[#2a3f23] text-primary">
-                    <span className="material-symbols-outlined text-lg">credit_card</span>
+                    <span className="material-symbols-outlined text-lg">payments</span>
                   </span>
-                  <h2 className="text-xl font-bold text-text-main dark:text-white">Payment Details</h2>
+                  <h2 className="text-xl font-bold text-text-main dark:text-white">Payment Method</h2>
                 </div>
                 <div className="bg-white dark:bg-surface-dark rounded-xl border border-gray-200 dark:border-[#2a3f23] p-6">
-                  <div className="grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-6">
-                    <div className="sm:col-span-6">
-                      <label className="block text-sm font-semibold text-text-main dark:text-gray-300 mb-2">Card number</label>
-                      <input type="text" placeholder="0000 0000 0000 0000" className="block w-full rounded-lg border-gray-200 dark:border-[#2a3f23] bg-[#f9fcf8] dark:bg-background-dark py-3 px-4" />
+                  <div className="flex items-center gap-4 p-4 bg-[#ebf3e7] dark:bg-[#2a3f23] rounded-xl">
+                    <span className="flex items-center justify-center w-12 h-12 rounded-full bg-primary text-text-main">
+                      <span className="material-symbols-outlined text-2xl">local_shipping</span>
+                    </span>
+                    <div>
+                      <h3 className="font-bold text-text-main dark:text-white">Cash on Delivery (COD)</h3>
+                      <p className="text-sm text-text-muted dark:text-gray-400">Pay when your order arrives at your doorstep</p>
                     </div>
-                    <div className="sm:col-span-3">
-                      <label className="block text-sm font-semibold text-text-main dark:text-gray-300 mb-2">Expiration</label>
-                      <input type="text" placeholder="MM/YY" className="block w-full rounded-lg border-gray-200 dark:border-[#2a3f23] bg-[#f9fcf8] dark:bg-background-dark py-3 px-4" />
-                    </div>
-                    <div className="sm:col-span-3">
-                      <label className="block text-sm font-semibold text-text-main dark:text-gray-300 mb-2">CVC</label>
-                      <input type="text" placeholder="123" className="block w-full rounded-lg border-gray-200 dark:border-[#2a3f23] bg-[#f9fcf8] dark:bg-background-dark py-3 px-4" />
-                    </div>
+                    <span className="ml-auto material-symbols-outlined text-primary text-2xl">check_circle</span>
+                  </div>
+                  <div className="mt-4">
+                    <label className="block text-sm font-semibold text-text-main dark:text-gray-300 mb-2">Phone Number (for delivery updates)</label>
+                    <input
+                      type="tel"
+                      name="phone"
+                      value={formData.phone}
+                      onChange={handleInputChange}
+                      placeholder="+91 XXXXX XXXXX"
+                      className="block w-full rounded-lg border-gray-200 dark:border-[#2a3f23] bg-[#f9fcf8] dark:bg-background-dark py-3 px-4"
+                      required
+                    />
                   </div>
                 </div>
               </section>
 
-              <button type="submit" className="w-full bg-primary hover:bg-primary-hover text-text-main text-lg font-bold py-4 rounded-xl shadow-lg transition-all flex items-center justify-center gap-2">
-                <span className="material-symbols-outlined">lock</span>
-                Pay ₹{total.toFixed(2)} Securely
+              <button 
+                type="submit" 
+                disabled={isPlacingOrder || items.length === 0}
+                className="w-full bg-primary hover:bg-primary-hover disabled:bg-gray-400 text-text-main text-lg font-bold py-4 rounded-xl shadow-lg transition-all flex items-center justify-center gap-2"
+              >
+                {isPlacingOrder ? (
+                  <>
+                    <span className="material-symbols-outlined animate-spin">progress_activity</span>
+                    Placing Order...
+                  </>
+                ) : (
+                  <>
+                    <span className="material-symbols-outlined">shopping_bag</span>
+                    Place Order - ₹{total.toFixed(2)} (COD)
+                  </>
+                )}
               </button>
             </form>
           </div>
@@ -245,9 +390,25 @@ export const Checkout: React.FC = () => {
                 ))}
 
                 <div className="flex flex-col gap-3 pt-4 border-t border-[#ebf3e7] dark:border-[#2a3f23]">
-                  <div className="flex justify-between items-center pt-3">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-text-muted dark:text-gray-400">Subtotal</span>
+                    <span className="font-medium text-text-main dark:text-white">₹{cartTotal.toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-text-muted dark:text-gray-400">Shipping</span>
+                    <span className="font-medium text-text-main dark:text-white">{shipping === 0 ? 'Free' : `₹${shipping.toFixed(2)}`}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-text-muted dark:text-gray-400">GST (5%)</span>
+                    <span className="font-medium text-text-main dark:text-white">₹{tax.toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between items-center pt-3 border-t border-[#ebf3e7] dark:border-[#2a3f23]">
                     <p className="text-base font-bold text-text-main dark:text-white">Total</p>
                     <p className="text-xl font-bold text-primary">₹{total.toFixed(2)}</p>
+                  </div>
+                  <div className="flex items-center gap-2 mt-2 text-sm text-green-600 dark:text-green-400">
+                    <span className="material-symbols-outlined text-lg">local_shipping</span>
+                    <span>Cash on Delivery</span>
                   </div>
                 </div>
               </div>

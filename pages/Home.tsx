@@ -1,9 +1,29 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { PRODUCTS } from '../data';
+import { fetchProducts } from '../lib/services/productService';
+import { Product } from '../types';
 
 export const Home: React.FC = () => {
-  const trendingProducts = PRODUCTS.slice(0, 4);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  // Fetch products from database
+  useEffect(() => {
+    const loadProducts = async () => {
+      try {
+        const dbProducts = await fetchProducts();
+        setProducts(dbProducts);
+      } catch (error) {
+        console.error('Failed to load products from database:', error);
+        setProducts([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadProducts();
+  }, []);
+
+  const trendingProducts = products.slice(0, 4);
 
   return (
     <>

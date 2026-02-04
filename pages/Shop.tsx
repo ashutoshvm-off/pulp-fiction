@@ -1,18 +1,37 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { PRODUCTS } from '../data';
 import { useCart } from '../context/CartContext';
+import { fetchProducts } from '../lib/services/productService';
+import { Product } from '../types';
 
 export const Shop: React.FC = () => {
   const { addToCart } = useCart();
   const [searchParams] = useSearchParams();
   const viewParam = searchParams.get('view');
 
+  const [products, setProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(viewParam === 'all' ? 'all' : null);
   const [priceRange, setPriceRange] = useState<string>('any');
   const [minRating, setMinRating] = useState<number>(0);
   const [sortBy, setSortBy] = useState<string>('bestselling');
   const [showMobileFilters, setShowMobileFilters] = useState<boolean>(false);
+
+  // Fetch products from database
+  useEffect(() => {
+    const loadProducts = async () => {
+      try {
+        const dbProducts = await fetchProducts();
+        setProducts(dbProducts);
+      } catch (error) {
+        console.error('Failed to load products from database:', error);
+        setProducts([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadProducts();
+  }, []);
 
   useEffect(() => {
     if (viewParam === 'all') {
@@ -28,7 +47,7 @@ export const Shop: React.FC = () => {
     { id: 'bundle', name: 'Bundles', icon: '📦', description: 'Value packs' },
   ];
 
-  const filteredProducts = PRODUCTS.filter(product => {
+  const filteredProducts = products.filter(product => {
     // Category filter - skip if 'all' is selected
     if (selectedCategory && selectedCategory !== 'all' && product.category !== selectedCategory) return false;
 
@@ -69,7 +88,7 @@ export const Shop: React.FC = () => {
           <h2 className="text-2xl font-bold text-gray-900 mb-6">Categories</h2>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
             {categories.map(cat => {
-              const categoryProducts = PRODUCTS.filter(p => p.category === cat.id);
+              const categoryProducts = products.filter(p => p.category === cat.id);
               const sampleImage = categoryProducts[0]?.image;
 
               return (
@@ -99,7 +118,7 @@ export const Shop: React.FC = () => {
         <div className="mb-8">
           <h2 className="text-2xl font-bold text-gray-900 mb-6">Popular Products</h2>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-            {PRODUCTS.filter(p => p.isBestSeller).map(product => (
+            {products.filter(p => p.isBestSeller).map(product => (
               <Link to={`/product/${product.id}`} key={product.id} className="group relative flex flex-col rounded-xl bg-surface-light border border-gray-100 hover:border-[#d7e7cf] shadow-sm hover:shadow-lg transition-all duration-300 overflow-hidden">
                 <div className="relative aspect-[3/4] bg-gray-50 flex items-center justify-center p-6">
                   <div className="absolute top-0 left-0 z-10 bg-[#e67a00] text-white px-3 py-1 rounded-br-lg text-xs font-bold uppercase tracking-wide">
