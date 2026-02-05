@@ -27,6 +27,7 @@ import { Admin } from './pages/Admin';
 import { AdminLogin } from './pages/AdminLogin';
 import { DeliveryLogin } from './pages/DeliveryLogin';
 import { DeliveryDashboard } from './pages/DeliveryDashboard';
+import { Addresses } from './pages/Addresses';
 
 const App: React.FC = () => {
   return (
@@ -65,6 +66,11 @@ const App: React.FC = () => {
                   <Route path="/profile" element={
                     <ProtectedRoute>
                       <Profile />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/profile/addresses" element={
+                    <ProtectedRoute>
+                      <Addresses />
                     </ProtectedRoute>
                   } />
 
