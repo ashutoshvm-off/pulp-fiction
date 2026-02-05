@@ -32,14 +32,14 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const loadCartFromDB = async () => {
     if (!user) return;
-    
+
     setLoading(true);
     try {
       const { data, error } = await supabase
         .from('shopping_cart')
         .select('*')
         .eq('user_id', user.id);
-      
+
       if (error) {
         console.error('Error loading cart:', error);
         return;
@@ -49,9 +49,13 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         const cartItems: CartItem[] = data.map((item: any) => ({
           id: item.product_id,
           name: item.product_name,
-          price: item.price,
+          price: typeof item.price === 'string' ? parseFloat(item.price) : item.price,
           image: item.image,
+          category: item.category || 'juice',
           quantity: item.quantity,
+          description: item.description || '',
+          rating: item.rating || 0,
+          reviews: item.reviews || 0,
         }));
         setItems(cartItems);
       }
@@ -83,7 +87,7 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     // Save to database
     try {
       const existingItem = items.find((i) => i.id === item.id);
-      
+
       if (existingItem) {
         // Update existing item
         await supabase
@@ -101,6 +105,10 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             product_name: item.name,
             price: item.price,
             image: item.image,
+            category: item.category,
+            description: item.description,
+            rating: item.rating,
+            reviews: item.reviews,
             quantity: item.quantity,
           });
       }

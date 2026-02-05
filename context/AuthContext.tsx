@@ -13,7 +13,7 @@ interface AuthContextType {
     signOut: () => Promise<void>;
     resetPassword: (email: string) => Promise<{ error: AuthError | null }>;
     confirmEmail: (token: string) => Promise<{ error: AuthError | null }>;
-    updatePassword: (newPassword: string, token: string) => Promise<{ error: AuthError | null }>;
+    updatePassword: (newPassword: string) => Promise<{ error: AuthError | null }>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -29,11 +29,11 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         const initializeAuth = async () => {
             try {
                 const { data: { session } } = await supabase.auth.getSession();
-                
+
                 if (session) {
                     // Validate the session by checking if user exists
                     const { data: { user: validUser }, error: userError } = await supabase.auth.getUser();
-                    
+
                     if (userError || !validUser) {
                         // Invalid session - user doesn't exist, clear it
                         console.warn('Invalid session detected, signing out...');
@@ -142,9 +142,12 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     const confirmEmail = async (token: string) => {
         try {
+            // Verify the email confirmation token
+            // When users click the link in their confirmation email,
+            // we need to exchange the token_hash for a session
             const { error } = await supabase.auth.verifyOtp({
-                token,
-                type: 'email',
+                token_hash: token,
+                type: 'signup',
             });
 
             return { error };
@@ -153,19 +156,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         }
     };
 
-    const updatePassword = async (newPassword: string, token: string) => {
+    const updatePassword = async (newPassword: string) => {
         try {
-            // First verify the token
-            const { error: verifyError } = await supabase.auth.verifyOtp({
-                token,
-                type: 'recovery',
-            });
-
-            if (verifyError) {
-                return { error: verifyError };
-            }
-
-            // Update password
+            // Update password for the currently authenticated user
+            // The user is already authenticated via the recovery link from their email
             const { error } = await supabase.auth.updateUser({
                 password: newPassword,
             });
