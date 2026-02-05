@@ -45,9 +45,7 @@ export const ProductDetail: React.FC = () => {
   }
 
   const handleAddToCart = () => {
-    for (let i = 0; i < quantity; i++) {
-      addToCart(product);
-    }
+    addToCart({ ...product, quantity });
   };
 
   return (
@@ -60,9 +58,9 @@ export const ProductDetail: React.FC = () => {
       <div className="grid md:grid-cols-2 gap-8 lg:gap-12">
         {/* Product Image */}
         <div className="bg-gray-50 rounded-2xl p-8 flex items-center justify-center">
-          <img 
-            src={product.image} 
-            alt={product.name} 
+          <img
+            src={product.image}
+            alt={product.name}
             className="w-full max-w-md object-contain mix-blend-multiply"
           />
         </div>
@@ -76,8 +74,8 @@ export const ProductDetail: React.FC = () => {
           <div className="flex items-center gap-2 mb-4">
             <div className="flex text-yellow-400">
               {[...Array(5)].map((_, i) => (
-                <span 
-                  key={i} 
+                <span
+                  key={i}
                   className={`material-symbols-outlined text-lg ${i < Math.floor(product.rating) ? 'filled' : ''}`}
                 >
                   star
@@ -129,14 +127,14 @@ export const ProductDetail: React.FC = () => {
           <div className="flex items-center gap-4 mb-6">
             <span className="text-sm font-bold text-gray-900">Quantity:</span>
             <div className="flex items-center border border-gray-200 rounded-lg">
-              <button 
+              <button
                 onClick={() => setQuantity(Math.max(1, quantity - 1))}
                 className="px-3 py-2 text-gray-600 hover:text-gray-900 transition-colors"
               >
                 <span className="material-symbols-outlined">remove</span>
               </button>
               <span className="px-4 py-2 font-bold text-gray-900 min-w-[3rem] text-center">{quantity}</span>
-              <button 
+              <button
                 onClick={() => setQuantity(quantity + 1)}
                 className="px-3 py-2 text-gray-600 hover:text-gray-900 transition-colors"
               >

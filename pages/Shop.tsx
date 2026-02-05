@@ -29,7 +29,7 @@ export const Shop: React.FC = () => {
         ]);
         setProducts(dbProducts);
         setShowCategories(settings.showCategories);
-        
+
         // If categories are hidden, default to showing all products
         if (!settings.showCategories) {
           setSelectedCategory('all');
@@ -316,8 +316,9 @@ export const Shop: React.FC = () => {
                       )}
                     </div>
 
+
                     <button
-                      onClick={(e) => { e.preventDefault(); addToCart(product); }}
+                      onClick={(e) => { e.preventDefault(); addToCart({ ...product, quantity: 1 }); }}
                       className="w-full mt-3 bg-[#f7ca00] hover:bg-[#daad00] text-black font-medium py-2 rounded-full text-sm transition-colors shadow-sm"
                     >
                       Add to Cart

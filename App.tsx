@@ -1,5 +1,6 @@
 import React from 'react';
 import { HashRouter, Routes, Route, Outlet } from 'react-router-dom';
+import { Toaster } from 'react-hot-toast';
 import { AuthProvider } from './context/AuthContext';
 import { CartProvider } from './context/CartContext';
 import { SubscriptionProvider } from './context/SubscriptionContext';
@@ -32,6 +33,22 @@ import { Addresses } from './pages/Addresses';
 const App: React.FC = () => {
   return (
     <HashRouter>
+      <Toaster
+        position="top-right"
+        toastOptions={{
+          duration: 3000,
+          style: {
+            background: '#333',
+            color: '#fff',
+          },
+          success: {
+            iconTheme: {
+              primary: '#a3e635',
+              secondary: '#fff',
+            },
+          },
+        }}
+      />
       <AuthProvider>
         <CartProvider>
           <SubscriptionProvider>
@@ -43,7 +60,7 @@ const App: React.FC = () => {
                   <Route path="/our-story" element={<OurStory />} />
                   <Route path="/product/:id" element={<ProductDetail />} />
                   <Route path="/cart" element={<Cart />} />
-                  
+
                   {/* Admin Routes */}
                   <Route path="/admin-login" element={<AdminLogin />} />
                   <Route path="/admin" element={<Admin />} />

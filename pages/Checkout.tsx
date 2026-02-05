@@ -33,20 +33,20 @@ export const Checkout: React.FC = () => {
         free_shipping_threshold: 500,
         is_active: true,
       };
-      
+
       try {
         const { data, error } = await supabase
           .from('app_settings')
           .select('value')
           .eq('key', 'fee_settings')
           .maybeSingle();
-        
+
         if (error) {
           console.log('Fee settings not found, using defaults');
           setFeeSettings(defaultFees);
           return;
         }
-        
+
         if (data?.value) {
           // Properly parse and validate the fee settings
           const parsedFees = data.value as FeeSettings;
@@ -72,10 +72,10 @@ export const Checkout: React.FC = () => {
   const customerName = profile?.full_name || user?.user_metadata?.full_name || 'Customer';
   const customerEmail = profile?.email || user?.email || '';
   const customerPhone = profile?.phone || user?.user_metadata?.phone || '';
-  
+
   // Get default address
   const defaultAddress = addresses.find(a => a.is_default) || addresses[0];
-  const shippingAddress = defaultAddress 
+  const shippingAddress = defaultAddress
     ? `${defaultAddress.address_line1}${defaultAddress.address_line2 ? ', ' + defaultAddress.address_line2 : ''}, ${defaultAddress.city}, ${defaultAddress.state} ${defaultAddress.postal_code}`
     : 'No address saved';
 
@@ -90,7 +90,7 @@ export const Checkout: React.FC = () => {
 
   const handlePay = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!user) {
       setOrderError('Please sign in to place an order');
       navigate('/auth/login?redirect=/checkout');
@@ -99,6 +99,19 @@ export const Checkout: React.FC = () => {
 
     if (!defaultAddress) {
       setOrderError('Please add a delivery address in your profile first');
+      return;
+    }
+
+    // Validate that fee settings have loaded and total is valid
+    if (!feeSettings) {
+      setOrderError('Loading order details. Please wait a moment and try again.');
+      return;
+    }
+
+    // Validate that total is a valid positive number
+    if (!total || isNaN(total) || total <= 0) {
+      setOrderError('Invalid order total. Please refresh the page and try again.');
+      console.error('Invalid total amount:', { total, cartTotal, feeSettings });
       return;
     }
 
@@ -220,15 +233,20 @@ export const Checkout: React.FC = () => {
               </div>
             </section>
 
-            <button 
+            <button
               onClick={handlePay}
-              disabled={isPlacingOrder || items.length === 0 || !defaultAddress}
+              disabled={isPlacingOrder || items.length === 0 || !defaultAddress || !feeSettings}
               className="w-full bg-primary hover:bg-primary-hover disabled:bg-gray-400 text-text-main text-lg font-bold py-4 rounded-xl shadow-lg transition-all flex items-center justify-center gap-2"
             >
               {isPlacingOrder ? (
                 <>
                   <span className="material-symbols-outlined animate-spin">progress_activity</span>
                   Placing Order...
+                </>
+              ) : !feeSettings ? (
+                <>
+                  <span className="material-symbols-outlined animate-spin">progress_activity</span>
+                  Loading...
                 </>
               ) : (
                 <>

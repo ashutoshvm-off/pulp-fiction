@@ -12,15 +12,40 @@ export interface OrderItem {
 
 export interface Order {
     id: string;
+    profile_id: string;
     order_number: string;
     status: 'pending' | 'confirmed' | 'shipped' | 'delivered' | 'cancelled';
     total_amount: number;
+    payment_method?: string;
     payment_status: 'pending' | 'paid' | 'failed' | 'refunded';
+    notes?: string;
     created_at: string;
     updated_at: string;
     shipped_at?: string;
     delivered_at?: string;
     items?: OrderItem[];
+}
+
+export interface Subscription {
+    id: string;
+    profile_id: string;
+    product_id: string;
+    status: 'active' | 'paused' | 'cancelled';
+    frequency: 'weekly' | 'biweekly' | 'monthly';
+    quantity: number;
+    unit_price: number;
+    next_delivery_date?: string;
+    cancelled_at?: string;
+    created_at: string;
+    updated_at: string;
+}
+
+export interface SubscriptionDelivery {
+    id: string;
+    subscription_id: string;
+    delivery_date: string;
+    status: 'scheduled' | 'delivered' | 'skipped' | 'failed';
+    created_at: string;
 }
 
 /**
@@ -212,156 +237,6 @@ export const updateOrderStatus = async (
 };
 
 /**
- * Create a subscription
- */
-export const createSubscription = async (subscription: Omit<Subscription, 'id' | 'created_at' | 'updated_at'>): Promise<Subscription> => {
-    if (!isSupabaseConfigured()) {
-        throw new Error('Supabase not configured');
-    }
-
-    const { data, error } = await supabase
-        .from('subscriptions')
-        .insert(subscription)
-        .select()
-        .single();
-
-    if (error) {
-        console.error('Error creating subscription:', error);
-        throw error;
-    }
-
-    return data;
-};
-
-/**
- * Get subscriptions for a profile
- */
-export const getSubscriptionsByProfileId = async (profileId: string): Promise<Subscription[]> => {
-    if (!isSupabaseConfigured()) {
-        return [];
-    }
-
-    const { data, error } = await supabase
-        .from('subscriptions')
-        .select('*')
-        .eq('profile_id', profileId)
-        .order('created_at', { ascending: false });
-
-    if (error) {
-        console.error('Error fetching subscriptions:', error);
-        throw error;
-    }
-
-    return data || [];
-};
-
-/**
- * Update subscription
- */
-export const updateSubscription = async (subscriptionId: string, updates: Partial<Subscription>): Promise<Subscription | null> => {
-    if (!isSupabaseConfigured()) {
-        throw new Error('Supabase not configured');
-    }
-
-    const { data, error } = await supabase
-        .from('subscriptions')
-        .update({
-            ...updates,
-            updated_at: new Date().toISOString(),
-        })
-        .eq('id', subscriptionId)
-        .select()
-        .single();
-
-    if (error) {
-        console.error('Error updating subscription:', error);
-        throw error;
-    }
-
-    return data;
-};
-
-/**
- * Cancel subscription
- */
-export const cancelSubscription = async (subscriptionId: string): Promise<Subscription | null> => {
-    return updateSubscription(subscriptionId, {
-        status: 'cancelled',
-        cancelled_at: new Date().toISOString(),
-    });
-};
-
-/**
- * Create subscription delivery
- */
-export const createSubscriptionDelivery = async (delivery: Omit<SubscriptionDelivery, 'id' | 'created_at'>): Promise<SubscriptionDelivery> => {
-    if (!isSupabaseConfigured()) {
-        throw new Error('Supabase not configured');
-    }
-
-    const { data, error } = await supabase
-        .from('subscription_deliveries')
-        .insert(delivery)
-        .select()
-        .single();
-
-    if (error) {
-        console.error('Error creating subscription delivery:', error);
-        throw error;
-    }
-
-    return data;
-};
-
-/**
- * Get subscription deliveries
- */
-export const getSubscriptionDeliveries = async (subscriptionId: string): Promise<SubscriptionDelivery[]> => {
-    if (!isSupabaseConfigured()) {
-        return [];
-    }
-
-    const { data, error } = await supabase
-        .from('subscription_deliveries')
-        .select('*')
-        .eq('subscription_id', subscriptionId)
-        .order('delivery_date', { ascending: true });
-
-    if (error) {
-        console.error('Error fetching subscription deliveries:', error);
-        throw error;
-    }
-
-    return data || [];
-};
-
-/**
- * Update subscription delivery status
- */
-export const updateSubscriptionDeliveryStatus = async (
-    deliveryId: string,
-    status: SubscriptionDelivery['status']
-): Promise<SubscriptionDelivery | null> => {
-    if (!isSupabaseConfigured()) {
-        throw new Error('Supabase not configured');
-    }
-
-    const { data, error } = await supabase
-        .from('subscription_deliveries')
-        .update({ status })
-        .eq('id', deliveryId)
-        .select()
-        .single();
-
-    if (error) {
-        console.error('Error updating subscription delivery:', error);
-        throw error;
-    }
-
-    return data;
-};
-
-/**
  * Fetch all orders for the current user
  */
 export const fetchUserOrders = async (): Promise<{ orders: Order[]; error: string | null }> => {
@@ -419,9 +294,9 @@ export const fetchOrderById = async (orderId: string): Promise<{ order: Order | 
             return { order: null, error: error.message };
         }
 
-        return { 
-            order: order ? { ...order, items: order.order_items || [] } : null, 
-            error: null 
+        return {
+            order: order ? { ...order, items: order.order_items || [] } : null,
+            error: null
         };
     } catch (error) {
         console.error('Order fetch error:', error);
