@@ -1,11 +1,62 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useCart } from '../context/CartContext';
+import { supabase } from '../lib/supabase';
+
+interface FeeSettings {
+  shipping_fee: number;
+  packaging_fee: number;
+  tax_percentage: number;
+  free_shipping_threshold: number;
+  is_active: boolean;
+}
 
 export const Cart: React.FC = () => {
   const { items, updateQuantity, removeFromCart, cartTotal } = useCart();
-  const shipping = cartTotal > 500 ? 0 : 50.00;
-  const tax = cartTotal * 0.05; // 5% GST mock
+  const [feeSettings, setFeeSettings] = useState<FeeSettings | null>(null);
+
+  // Load fee settings from database
+  useEffect(() => {
+    const loadFees = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('app_settings')
+          .select('value')
+          .eq('key', 'fee_settings')
+          .maybeSingle();
+        
+        if (!error && data?.value) {
+          setFeeSettings(data.value as FeeSettings);
+        } else {
+          // Default to all zeros if no settings or fees disabled
+          setFeeSettings({
+            shipping_fee: 0,
+            packaging_fee: 0,
+            tax_percentage: 0,
+            free_shipping_threshold: 0,
+            is_active: false,
+          });
+        }
+      } catch (err) {
+        console.log('Error loading fees:', err);
+        setFeeSettings({
+          shipping_fee: 0,
+          packaging_fee: 0,
+          tax_percentage: 0,
+          free_shipping_threshold: 0,
+          is_active: false,
+        });
+      }
+    };
+    loadFees();
+  }, []);
+
+  // Calculate fees based on settings
+  const shipping = feeSettings?.is_active 
+    ? (feeSettings.free_shipping_threshold > 0 && cartTotal >= feeSettings.free_shipping_threshold ? 0 : feeSettings.shipping_fee)
+    : 0;
+  const taxRate = feeSettings?.is_active ? feeSettings.tax_percentage : 0;
+  const tax = cartTotal * (taxRate / 100);
   const total = cartTotal + shipping + tax;
 
   return (
@@ -41,7 +92,11 @@ export const Cart: React.FC = () => {
                     <h3 className="text-lg font-bold text-text-main dark:text-white">{item.name}</h3>
                     <div className="flex flex-wrap gap-2">
                       <span className="px-2 py-0.5 rounded-md bg-[#ebf3e7] dark:bg-[#2a3f23] text-xs font-bold text-text-muted dark:text-primary capitalize">{item.category}</span>
-                      <span className="px-2 py-0.5 rounded-md bg-gray-100 dark:bg-gray-800 text-xs text-gray-500 dark:text-gray-400">12oz</span>
+                      {(item as any).sugarPreference && (
+                        <span className="px-2 py-0.5 rounded-md bg-gray-100 dark:bg-gray-800 text-xs text-gray-500 dark:text-gray-400">
+                          {(item as any).sugarPreference === 'sugarless' ? 'No Sugar' : 'Regular'}
+                        </span>
+                      )}
                     </div>
                     <div className="text-primary font-bold text-lg mt-1">₹{item.price.toFixed(2)}</div>
                   </div>
@@ -80,8 +135,8 @@ export const Cart: React.FC = () => {
                   <span className="font-medium text-text-main dark:text-white">{shipping === 0 ? 'Free' : `₹${shipping.toFixed(2)}`}</span>
                 </div>
                 <div className="flex justify-between text-sm">
-                  <span className="text-text-muted dark:text-gray-400">Tax Estimate (5%)</span>
-                  <span className="font-medium text-text-main dark:text-white">₹{tax.toFixed(2)}</span>
+                  <span className="text-text-muted dark:text-gray-400">Tax{taxRate > 0 ? ` (${taxRate}%)` : ''}</span>
+                  <span className="font-medium text-text-main dark:text-white">{tax > 0 ? `₹${tax.toFixed(2)}` : 'Free'}</span>
                 </div>
                 <div className="border-t border-[#ebf3e7] dark:border-[#2a3f23] my-4 pt-4 flex justify-between items-end">
                   <span className="text-text-main dark:text-white font-bold text-lg">Total</span>

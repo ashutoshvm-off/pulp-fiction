@@ -10,7 +10,7 @@ export const ProductDetail: React.FC = () => {
   const [product, setProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState(true);
   const [quantity, setQuantity] = useState(1);
-  const [selectedSize, setSelectedSize] = useState('12oz');
+  const [selectedSugar, setSelectedSugar] = useState<'regular' | 'sugarless'>('regular');
 
   useEffect(() => {
     const loadProduct = async () => {
@@ -81,7 +81,7 @@ export const ProductDetail: React.FC = () => {
           <div className="flex flex-col py-2 lg:py-6">
             <div className="flex justify-between items-start">
               <div>
-                <h1 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-text-main dark:text-white tracking-tight mb-2 font-serif">{product.name}</h1>
+                <h1 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-gray-900 dark:text-white tracking-tight mb-2 font-serif">{product.name}</h1>
                 <div className="flex items-center gap-2 mb-6">
                   <div className="flex gap-0.5 text-primary text-sm">
                     {[...Array(5)].map((_, i) => (
@@ -91,29 +91,35 @@ export const ProductDetail: React.FC = () => {
                   <span className="text-sm font-medium text-text-muted dark:text-gray-400">({product.reviews} Reviews)</span>
                 </div>
               </div>
-              <div className="text-2xl sm:text-3xl font-bold text-text-main dark:text-white font-serif">₹{product.price.toFixed(2)}</div>
+              <div className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white font-serif">₹{product.price.toFixed(2)}</div>
             </div>
 
             <p className="text-text-muted dark:text-gray-300 text-lg leading-relaxed mb-8 font-light">
               {product.description}
             </p>
 
-            {/* Size Selector */}
+            {/* Sugar Option Selector */}
             <div className="mb-8">
-              <h3 className="text-sm font-bold text-text-main dark:text-white uppercase tracking-wider mb-3">Bottle Size</h3>
+              <h3 className="text-sm font-bold text-gray-900 dark:text-white uppercase tracking-wider mb-3">Sugar Preference</h3>
               <div className="flex flex-wrap gap-3">
-                {['12 oz', '16 oz (+₹50)', '6-Pack (Save 10%)'].map((size) => (
-                  <button
-                    key={size}
-                    onClick={() => setSelectedSize(size)}
-                    className={`px-6 py-3 rounded-lg border text-sm font-bold transition-all ${selectedSize === size
-                      ? 'border-2 border-primary bg-primary/10 text-primary'
-                      : 'border-[#ebf3e7] dark:border-[#2a3f23] text-text-muted hover:border-primary/50 bg-white dark:bg-surface-dark'
-                      }`}
-                  >
-                    {size}
-                  </button>
-                ))}
+                <button
+                  onClick={() => setSelectedSugar('regular')}
+                  className={`px-6 py-3 rounded-lg border text-sm font-bold transition-all ${selectedSugar === 'regular'
+                    ? 'border-2 border-primary bg-primary/10 text-primary'
+                    : 'border-[#ebf3e7] dark:border-[#2a3f23] text-gray-700 hover:border-primary/50 bg-white dark:bg-surface-dark'
+                    }`}
+                >
+                  Regular (With Sugar)
+                </button>
+                <button
+                  onClick={() => setSelectedSugar('sugarless')}
+                  className={`px-6 py-3 rounded-lg border text-sm font-bold transition-all ${selectedSugar === 'sugarless'
+                    ? 'border-2 border-primary bg-primary/10 text-primary'
+                    : 'border-[#ebf3e7] dark:border-[#2a3f23] text-gray-700 hover:border-primary/50 bg-white dark:bg-surface-dark'
+                    }`}
+                >
+                  Sugarless (No Added Sugar)
+                </button>
               </div>
             </div>
 
@@ -129,8 +135,8 @@ export const ProductDetail: React.FC = () => {
                 </button>
               </div>
               <button
-                onClick={() => addToCart(product, quantity)}
-                className="flex-1 bg-text-main dark:bg-white hover:bg-black dark:hover:bg-gray-200 text-white dark:text-text-main font-bold text-lg py-3.5 px-8 rounded-xl shadow-lg transition-all flex items-center justify-center gap-2 uppercase tracking-widest"
+                onClick={() => addToCart({ ...product, sugarPreference: selectedSugar }, quantity)}
+                className="flex-1 bg-gray-900 dark:bg-white hover:bg-black dark:hover:bg-gray-200 text-white dark:text-gray-900 font-bold text-lg py-3.5 px-8 rounded-xl shadow-lg transition-all flex items-center justify-center gap-2 uppercase tracking-widest"
               >
                 Add to Bag - ₹{(product.price * quantity).toFixed(2)}
               </button>

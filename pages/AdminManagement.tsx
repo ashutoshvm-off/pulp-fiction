@@ -4,17 +4,15 @@ import {
   addNewAdmin,
   deleteAdmin,
   updateAdminPermissions,
-  AdminUser,
   getAdminSession,
   AdminSession,
 } from '../lib/services/adminAuthService';
 
 interface AdminListItem {
   id: string;
-  admin_id: string;
-  name: string;
-  email?: string;
+  username: string;
   can_manage_admins: boolean;
+  is_active: boolean;
   created_at: string;
 }
 
@@ -25,14 +23,11 @@ export const AdminManagement: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [showAddForm, setShowAddForm] = useState(false);
-  const [selectedAdmin, setSelectedAdmin] = useState<AdminListItem | null>(null);
 
   // Form state
   const [formData, setFormData] = useState({
-    adminId: '',
+    username: '',
     password: '',
-    email: '',
-    name: '',
     canManageAdmins: false,
   });
 
@@ -64,8 +59,8 @@ export const AdminManagement: React.FC = () => {
     setLoading(true);
 
     try {
-      if (!formData.adminId || !formData.password || !formData.name) {
-        setError('Admin ID, password, and name are required');
+      if (!formData.username || !formData.password) {
+        setError('Username and password are required');
         return;
       }
 
@@ -75,19 +70,15 @@ export const AdminManagement: React.FC = () => {
       }
 
       await addNewAdmin(
-        formData.adminId,
+        formData.username,
         formData.password,
-        formData.name,
-        formData.email || undefined,
         formData.canManageAdmins
       );
 
-      setSuccess(`Admin '${formData.name}' added successfully!`);
+      setSuccess(`Admin '${formData.username}' added successfully!`);
       setFormData({
-        adminId: '',
+        username: '',
         password: '',
-        email: '',
-        name: '',
         canManageAdmins: false,
       });
       setShowAddForm(false);
@@ -99,21 +90,20 @@ export const AdminManagement: React.FC = () => {
     }
   };
 
-  const handleRemoveAdmin = async (adminId: string) => {
-    if (!window.confirm('Are you sure you want to remove this admin?')) {
+  const handleRemoveAdmin = async (id: string, username: string) => {
+    if (!window.confirm(`Are you sure you want to remove admin "${username}"?`)) {
       return;
     }
 
-    if (currentAdmin?.admin_id === adminId) {
+    if (currentAdmin?.id === id) {
       setError('You cannot remove your own admin account');
       return;
     }
 
     setLoading(true);
     try {
-      await deleteAdmin(adminId);
-      setAdmins(admins.filter((a) => a.admin_id !== adminId));
-      setSelectedAdmin(null);
+      await deleteAdmin(id);
+      setAdmins(admins.filter((a) => a.id !== id));
       setSuccess('Admin removed successfully');
       setError(null);
     } catch (err: any) {
@@ -123,21 +113,16 @@ export const AdminManagement: React.FC = () => {
     }
   };
 
-  const handleTogglePermission = async (adminId: string, currentPermission: boolean) => {
+  const handleTogglePermission = async (id: string, currentPermission: boolean) => {
     setLoading(true);
     setError(null);
     setSuccess(null);
     try {
-      await updateAdminPermissions(adminId, !currentPermission);
+      await updateAdminPermissions(id, !currentPermission);
       setAdmins(
         admins.map((a) =>
-          a.admin_id === adminId ? { ...a, can_manage_admins: !currentPermission } : a
+          a.id === id ? { ...a, can_manage_admins: !currentPermission } : a
         )
-      );
-      setSelectedAdmin(
-        selectedAdmin?.admin_id === adminId
-          ? { ...selectedAdmin, can_manage_admins: !currentPermission }
-          : selectedAdmin
       );
       setSuccess('Admin permissions updated');
     } catch (err: any) {
@@ -195,11 +180,11 @@ export const AdminManagement: React.FC = () => {
           <form onSubmit={handleAddAdmin} className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Admin ID</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Username</label>
                 <input
                   type="text"
-                  value={formData.adminId}
-                  onChange={(e) => setFormData({ ...formData, adminId: e.target.value })}
+                  value={formData.username}
+                  onChange={(e) => setFormData({ ...formData, username: e.target.value })}
                   placeholder="e.g., admin2"
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-green-600"
                   disabled={loading}
@@ -217,31 +202,6 @@ export const AdminManagement: React.FC = () => {
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-green-600"
                   disabled={loading}
                   required
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Full Name</label>
-                <input
-                  type="text"
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  placeholder="Admin's full name"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-green-600"
-                  disabled={loading}
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Email (Optional)</label>
-                <input
-                  type="email"
-                  value={formData.email}
-                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  placeholder="admin@example.com"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-green-600"
-                  disabled={loading}
                 />
               </div>
             </div>
@@ -281,8 +241,8 @@ export const AdminManagement: React.FC = () => {
           <table className="w-full">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
-                <th className="px-6 py-3 text-left text-sm font-semibold text-gray-900">Name</th>
-                <th className="px-6 py-3 text-left text-sm font-semibold text-gray-900">Email</th>
+                <th className="px-6 py-3 text-left text-sm font-semibold text-gray-900">Username</th>
+                <th className="px-6 py-3 text-left text-sm font-semibold text-gray-900">Status</th>
                 <th className="px-6 py-3 text-left text-sm font-semibold text-gray-900">Can Manage Admins</th>
                 <th className="px-6 py-3 text-left text-sm font-semibold text-gray-900">Created</th>
                 <th className="px-6 py-3 text-left text-sm font-semibold text-gray-900">Actions</th>
@@ -291,11 +251,19 @@ export const AdminManagement: React.FC = () => {
             <tbody className="divide-y divide-gray-200">
               {admins.map((admin) => (
                 <tr key={admin.id} className="hover:bg-gray-50">
-                  <td className="px-6 py-3 text-sm font-medium text-gray-900">{admin.name}</td>
-                  <td className="px-6 py-3 text-sm text-gray-600">{admin.email || '-'}</td>
+                  <td className="px-6 py-3 text-sm font-medium text-gray-900">{admin.username}</td>
+                  <td className="px-6 py-3 text-sm">
+                    <span className={`px-2 py-1 rounded text-xs font-semibold ${
+                      admin.is_active
+                        ? 'bg-green-100 text-green-800'
+                        : 'bg-red-100 text-red-800'
+                    }`}>
+                      {admin.is_active ? 'Active' : 'Inactive'}
+                    </span>
+                  </td>
                   <td className="px-6 py-3 text-sm">
                     <button
-                      onClick={() => handleTogglePermission(admin.admin_id, admin.can_manage_admins)}
+                      onClick={() => handleTogglePermission(admin.id, admin.can_manage_admins)}
                       className={`px-3 py-1 rounded text-xs font-semibold ${
                         admin.can_manage_admins
                           ? 'bg-green-100 text-green-800 hover:bg-green-200'
@@ -310,9 +278,9 @@ export const AdminManagement: React.FC = () => {
                     {new Date(admin.created_at).toLocaleDateString()}
                   </td>
                   <td className="px-6 py-3 text-sm">
-                    {currentAdmin.admin_id !== admin.admin_id && (
+                    {currentAdmin?.id !== admin.id && (
                       <button
-                        onClick={() => handleRemoveAdmin(admin.admin_id)}
+                        onClick={() => handleRemoveAdmin(admin.id, admin.username)}
                         disabled={loading}
                         className="text-red-600 hover:text-red-800 font-medium transition disabled:text-gray-400"
                       >

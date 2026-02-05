@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { loginAdmin } from '../lib/services/adminAuthService';
 
 export const AdminLogin: React.FC = () => {
-  const [adminId, setAdminId] = useState('');
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -15,7 +15,7 @@ export const AdminLogin: React.FC = () => {
     setLoading(true);
 
     try {
-      const result = await loginAdmin(adminId, password);
+      const result = await loginAdmin(username, password);
       if (result.success) {
         navigate('/admin');
       }
@@ -43,13 +43,13 @@ export const AdminLogin: React.FC = () => {
         <form onSubmit={handleLogin} className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Admin ID
+              Username
             </label>
             <input
               type="text"
-              value={adminId}
-              onChange={(e) => setAdminId(e.target.value)}
-              placeholder="Enter your admin ID"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              placeholder="Enter your username"
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-green-600"
               required
               disabled={loading}

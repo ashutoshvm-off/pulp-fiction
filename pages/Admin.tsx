@@ -15,8 +15,15 @@ import { fetchProducts, updateProduct as updateProductInDb, createProduct, delet
 import { AdminManagement } from './AdminManagement';
 import { Product } from '../types';
 import { supabase } from '../lib/supabase';
+import {
+  getAllDeliveryAgents,
+  createDeliveryAgent,
+  updateDeliveryAgent,
+  deleteDeliveryAgent,
+  DeliveryAgent,
+} from '../lib/services/deliveryAuthService';
 
-type Tab = 'dashboard' | 'orders' | 'products' | 'admin' | 'settings';
+type Tab = 'dashboard' | 'orders' | 'products' | 'admin' | 'settings' | 'delivery';
 type OrderStatus = 'pending' | 'confirmed' | 'shipped' | 'delivered' | 'cancelled';
 
 interface FeeSettings {
@@ -76,9 +83,6 @@ export const Admin: React.FC = () => {
   const newProductFileInputRef = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
 
-  // Auto-refresh interval (in milliseconds) - 30 seconds
-  const AUTO_REFRESH_INTERVAL = 30000;
-
   // Function to load all data
   const loadData = async (showLoading = true) => {
     if (showLoading) setLoading(true);
@@ -115,7 +119,28 @@ export const Admin: React.FC = () => {
     loadFeeSettings();
   }, [navigate]);
 
-  // Auto-refresh data every 30 seconds
+  // Real-time subscription for orders - instant sync when delivery agent updates
+  useEffect(() => {
+    const channel = supabase
+      .channel('orders-changes')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'orders' },
+        (payload) => {
+          console.log('Order changed:', payload);
+          // Reload orders on any change
+          loadData(false);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
+
+  // Auto-refresh data every 15 seconds as backup
+  const AUTO_REFRESH_INTERVAL = 5000; // 5 seconds
   useEffect(() => {
     const interval = setInterval(() => {
       // Only auto-refresh if not editing something
@@ -459,6 +484,78 @@ export const Admin: React.FC = () => {
     }
   };
 
+  // Delivery agents state
+  const [deliveryAgents, setDeliveryAgents] = useState<DeliveryAgent[]>([]);
+  const [showAddAgentForm, setShowAddAgentForm] = useState(false);
+  const [newAgent, setNewAgent] = useState({ username: '', password: '', fullName: '', phone: '' });
+  const [savingAgent, setSavingAgent] = useState(false);
+  const [deletingAgent, setDeletingAgent] = useState<string | null>(null);
+
+  // Load delivery agents when switching to delivery tab
+  useEffect(() => {
+    if (activeTab === 'delivery') {
+      loadDeliveryAgents();
+    }
+  }, [activeTab]);
+
+  const loadDeliveryAgents = async () => {
+    try {
+      const agents = await getAllDeliveryAgents();
+      setDeliveryAgents(agents);
+    } catch (err) {
+      console.error('Error loading delivery agents:', err);
+    }
+  };
+
+  const handleAddAgent = async () => {
+    if (!newAgent.username || !newAgent.password || !newAgent.fullName) {
+      setError('Username, password, and name are required');
+      return;
+    }
+
+    setSavingAgent(true);
+    try {
+      const agent = await createDeliveryAgent(
+        newAgent.username,
+        newAgent.password,
+        newAgent.fullName,
+        newAgent.phone
+      );
+      setDeliveryAgents([agent, ...deliveryAgents]);
+      setShowAddAgentForm(false);
+      setNewAgent({ username: '', password: '', fullName: '', phone: '' });
+    } catch (err: any) {
+      setError(err.message || 'Failed to add delivery agent');
+    } finally {
+      setSavingAgent(false);
+    }
+  };
+
+  const handleToggleAgentStatus = async (agent: DeliveryAgent) => {
+    try {
+      await updateDeliveryAgent(agent.id, { is_active: !agent.is_active });
+      setDeliveryAgents(prev =>
+        prev.map(a => a.id === agent.id ? { ...a, is_active: !a.is_active } : a)
+      );
+    } catch (err: any) {
+      setError(err.message || 'Failed to update agent status');
+    }
+  };
+
+  const handleDeleteAgent = async (id: string) => {
+    if (!window.confirm('Are you sure you want to delete this delivery agent?')) return;
+    
+    setDeletingAgent(id);
+    try {
+      await deleteDeliveryAgent(id);
+      setDeliveryAgents(prev => prev.filter(a => a.id !== id));
+    } catch (err: any) {
+      setError(err.message || 'Failed to delete agent');
+    } finally {
+      setDeletingAgent(null);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
@@ -536,6 +633,16 @@ export const Admin: React.FC = () => {
             }`}
           >
             Settings
+          </button>
+          <button
+            onClick={() => setActiveTab('delivery')}
+            className={`px-6 py-4 font-medium border-b-2 transition whitespace-nowrap ${
+              activeTab === 'delivery'
+                ? 'border-green-600 text-green-600'
+                : 'border-transparent text-gray-600 hover:text-gray-900'
+            }`}
+          >
+            Delivery Agents
           </button>
           {adminUser?.can_manage_admins && (
             <button
@@ -1375,6 +1482,180 @@ export const Admin: React.FC = () => {
                   )}
                 </button>
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* Delivery Agents Tab */}
+        {activeTab === 'delivery' && (
+          <div>
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-2xl font-bold text-gray-900">Delivery Agents</h2>
+              <button
+                onClick={() => setShowAddAgentForm(true)}
+                className="bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-4 rounded-lg transition flex items-center gap-2"
+              >
+                <span className="material-symbols-outlined">person_add</span>
+                Add Delivery Agent
+              </button>
+            </div>
+
+            {/* Add Agent Form */}
+            {showAddAgentForm && (
+              <div className="bg-white rounded-lg shadow p-6 mb-6">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">Add New Delivery Agent</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Username *</label>
+                    <input
+                      type="text"
+                      value={newAgent.username}
+                      onChange={(e) => setNewAgent({ ...newAgent, username: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:border-green-600"
+                      placeholder="e.g., driver1"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Password *</label>
+                    <input
+                      type="password"
+                      value={newAgent.password}
+                      onChange={(e) => setNewAgent({ ...newAgent, password: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:border-green-600"
+                      placeholder="Min 6 characters"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Full Name *</label>
+                    <input
+                      type="text"
+                      value={newAgent.fullName}
+                      onChange={(e) => setNewAgent({ ...newAgent, fullName: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:border-green-600"
+                      placeholder="Full name"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Phone</label>
+                    <input
+                      type="tel"
+                      value={newAgent.phone}
+                      onChange={(e) => setNewAgent({ ...newAgent, phone: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:border-green-600"
+                      placeholder="Phone number"
+                    />
+                  </div>
+                </div>
+                <div className="flex gap-3 mt-4">
+                  <button
+                    onClick={handleAddAgent}
+                    disabled={savingAgent}
+                    className="bg-green-600 hover:bg-green-700 disabled:bg-green-400 text-white font-semibold py-2 px-4 rounded-lg transition flex items-center gap-2"
+                  >
+                    {savingAgent ? (
+                      <>
+                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                        Adding...
+                      </>
+                    ) : (
+                      <>
+                        <span className="material-symbols-outlined text-sm">check</span>
+                        Add Agent
+                      </>
+                    )}
+                  </button>
+                  <button
+                    onClick={() => {
+                      setShowAddAgentForm(false);
+                      setNewAgent({ username: '', password: '', fullName: '', phone: '' });
+                    }}
+                    className="bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold py-2 px-4 rounded-lg transition"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Agents List */}
+            <div className="bg-white rounded-lg shadow overflow-hidden">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Agent
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Username
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Phone
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Status
+                    </th>
+                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Actions
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {deliveryAgents.length === 0 ? (
+                    <tr>
+                      <td colSpan={5} className="px-6 py-12 text-center text-gray-500">
+                        <span className="material-symbols-outlined text-4xl text-gray-400 mb-2 block">local_shipping</span>
+                        No delivery agents yet. Click "Add Delivery Agent" to get started.
+                      </td>
+                    </tr>
+                  ) : (
+                    deliveryAgents.map((agent) => (
+                      <tr key={agent.id} className="hover:bg-gray-50">
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="flex items-center">
+                            <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
+                              <span className="material-symbols-outlined text-green-600">local_shipping</span>
+                            </div>
+                            <div className="ml-3">
+                              <div className="text-sm font-medium text-gray-900">{agent.full_name}</div>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className="text-sm text-gray-600">{agent.username}</span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className="text-sm text-gray-600">{agent.phone || '—'}</span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <button
+                            onClick={() => handleToggleAgentStatus(agent)}
+                            className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium cursor-pointer transition ${
+                              agent.is_active
+                                ? 'bg-green-100 text-green-800 hover:bg-green-200'
+                                : 'bg-red-100 text-red-800 hover:bg-red-200'
+                            }`}
+                          >
+                            {agent.is_active ? 'Active' : 'Inactive'}
+                          </button>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                          <button
+                            onClick={() => handleDeleteAgent(agent.id)}
+                            disabled={deletingAgent === agent.id}
+                            className="text-red-600 hover:text-red-900 disabled:opacity-50"
+                          >
+                            {deletingAgent === agent.id ? (
+                              <div className="w-5 h-5 border-2 border-red-600 border-t-transparent rounded-full animate-spin"></div>
+                            ) : (
+                              <span className="material-symbols-outlined">delete</span>
+                            )}
+                          </button>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
             </div>
           </div>
         )}

@@ -25,6 +25,8 @@ import { VerifyOTP } from './pages/auth/VerifyOTP';
 import { NewPassword } from './pages/auth/NewPassword';
 import { Admin } from './pages/Admin';
 import { AdminLogin } from './pages/AdminLogin';
+import { DeliveryLogin } from './pages/DeliveryLogin';
+import { DeliveryDashboard } from './pages/DeliveryDashboard';
 
 const App: React.FC = () => {
   return (
@@ -82,6 +84,8 @@ const App: React.FC = () => {
                     } />
                     <Route path="success" element={<Success />} />
                   </Route>
+                  <Route path="/delivery-login" element={<DeliveryLogin />} />
+                  <Route path="/delivery" element={<DeliveryDashboard />} />
                 </Routes>
               </Layout>
             </ProfileProvider>

@@ -196,13 +196,17 @@ export const Profile: React.FC = () => {
         } catch (error: any) {
             console.error('Error getting location:', error);
             if (error.code === 1) {
-                alert('Location access denied. Please enable location permissions.');
+                // Permission denied - show helpful message
+                const useManual = confirm('Location access was denied.\\n\\nWould you like to enter your address manually instead?\\n\\nTip: You can enable location in your browser settings (click the lock/info icon in the address bar).');
+                if (!useManual) {
+                    // Do nothing, let user enter manually
+                }
             } else if (error.code === 2) {
-                alert('Unable to determine your location. Please try again.');
+                alert('Unable to determine your location. Please enter your address manually.');
             } else if (error.code === 3) {
-                alert('Location request timed out. Please try again.');
+                alert('Location request timed out. Please enter your address manually or try again.');
             } else {
-                alert('Failed to get your location. Please enter address manually.');
+                alert('Could not get your location. Please enter your address manually.');
             }
         } finally {
             setGettingLocation(false);

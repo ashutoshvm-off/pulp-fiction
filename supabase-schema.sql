@@ -59,6 +59,7 @@ CREATE TABLE IF NOT EXISTS order_items (
   quantity INTEGER NOT NULL CHECK (quantity > 0),
   unit_price DECIMAL(10, 2) NOT NULL,
   subtotal DECIMAL(10, 2) NOT NULL,
+  sugar_option TEXT DEFAULT 'regular', -- 'regular' or 'sugarless'
   notes TEXT,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
@@ -249,6 +250,83 @@ CREATE TRIGGER on_auth_user_created
 INSERT INTO storage.buckets (id, name, public) 
 VALUES ('avatars', 'avatars', true)
 ON CONFLICT (id) DO NOTHING;
+
+-- =====================================================
+-- Admin Credentials Table (for admin panel login)
+-- =====================================================
+-- Drop and recreate to ensure correct schema
+DROP TABLE IF EXISTS admin_credentials CASCADE;
+
+CREATE TABLE admin_credentials (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  username TEXT UNIQUE NOT NULL,
+  password_hash TEXT NOT NULL,
+  can_manage_admins BOOLEAN DEFAULT FALSE,
+  is_active BOOLEAN DEFAULT TRUE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Insert default admin (username: admin, password: admin123)
+INSERT INTO admin_credentials (username, password_hash, can_manage_admins)
+VALUES ('admin', 'admin123', TRUE)
+ON CONFLICT (username) DO NOTHING;
+
+-- Enable RLS for admin_credentials
+ALTER TABLE admin_credentials ENABLE ROW LEVEL SECURITY;
+
+-- Public read/write policy for admin credentials (since admins manage this themselves)
+DROP POLICY IF EXISTS "Allow all access to admin_credentials" ON admin_credentials;
+CREATE POLICY "Allow all access to admin_credentials" ON admin_credentials
+  FOR ALL USING (true) WITH CHECK (true);
+
+-- =====================================================
+-- Delivery Agents Table
+-- =====================================================
+-- Drop and recreate to ensure correct schema
+DROP TABLE IF EXISTS delivery_agents CASCADE;
+
+CREATE TABLE delivery_agents (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  username TEXT UNIQUE NOT NULL,
+  password_hash TEXT NOT NULL,
+  full_name TEXT NOT NULL,
+  phone TEXT,
+  is_active BOOLEAN DEFAULT TRUE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Enable RLS for delivery_agents
+ALTER TABLE delivery_agents ENABLE ROW LEVEL SECURITY;
+
+-- Public policy for delivery agents (managed by admins)
+DROP POLICY IF EXISTS "Allow all access to delivery_agents" ON delivery_agents;
+CREATE POLICY "Allow all access to delivery_agents" ON delivery_agents
+  FOR ALL USING (true) WITH CHECK (true);
+
+-- Create indexes for delivery agents
+CREATE INDEX IF NOT EXISTS idx_delivery_agents_username ON delivery_agents(username);
+CREATE INDEX IF NOT EXISTS idx_delivery_agents_is_active ON delivery_agents(is_active);
+
+-- =====================================================
+-- App Settings Table (for fee configuration etc.)
+-- =====================================================
+CREATE TABLE IF NOT EXISTS app_settings (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  key TEXT UNIQUE NOT NULL,
+  value JSONB NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Enable RLS for app_settings
+ALTER TABLE app_settings ENABLE ROW LEVEL SECURITY;
+
+-- Public policy for app settings
+DROP POLICY IF EXISTS "Allow all access to app_settings" ON app_settings;
+CREATE POLICY "Allow all access to app_settings" ON app_settings
+  FOR ALL USING (true) WITH CHECK (true);
 
 -- Create storage policy for avatars bucket
 -- Drop existing policies if they exist

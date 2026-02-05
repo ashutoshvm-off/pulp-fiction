@@ -8,6 +8,7 @@ export interface OrderItem {
     quantity: number;
     unit_price: number;
     subtotal: number;
+    sugar_option?: string; // 'regular' or 'sugarless'
     notes?: string;
     created_at?: string;
 }

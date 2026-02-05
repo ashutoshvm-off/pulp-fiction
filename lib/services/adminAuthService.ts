@@ -2,48 +2,47 @@ import { supabase } from '../supabase';
 
 export interface AdminUser {
   id: string;
-  admin_id: string;
-  password: string;
-  name: string;
-  email?: string;
+  username: string;
+  password_hash: string;
   can_manage_admins: boolean;
+  is_active: boolean;
   created_at: string;
   updated_at: string;
 }
 
 export interface AdminSession {
   id: string;
-  admin_id: string;
-  name: string;
-  email?: string;
+  username: string;
   can_manage_admins: boolean;
   login_time: string;
 }
 
 // Admin login
-export async function loginAdmin(adminId: string, password: string) {
+export async function loginAdmin(username: string, password: string) {
   try {
     const { data, error } = await supabase
       .from('admin_credentials')
       .select('*')
-      .eq('admin_id', adminId)
+      .eq('username', username.toLowerCase())
       .single();
 
     if (error || !data) {
-      throw new Error('Admin ID not found');
+      throw new Error('Admin username not found');
     }
 
-    // Simple password comparison
-    if (data.password !== password) {
+    if (!data.is_active) {
+      throw new Error('This admin account is deactivated');
+    }
+
+    // Simple password comparison (in production, use proper hashing)
+    if (data.password_hash !== password) {
       throw new Error('Invalid password');
     }
 
     // Store admin session in localStorage
     const adminSession: AdminSession = {
       id: data.id,
-      admin_id: data.admin_id,
-      name: data.name,
-      email: data.email,
+      username: data.username,
       can_manage_admins: data.can_manage_admins,
       login_time: new Date().toISOString(),
     };
@@ -72,33 +71,30 @@ export function logoutAdmin() {
 
 // Add new admin (only for admins with can_manage_admins permission)
 export async function addNewAdmin(
-  adminId: string,
+  username: string,
   password: string,
-  name: string,
-  email?: string,
   canManageAdmins: boolean = false
 ) {
   try {
-    // Check if admin_id already exists
+    // Check if username already exists
     const { data: existing } = await supabase
       .from('admin_credentials')
       .select('id')
-      .eq('admin_id', adminId)
-      .single();
+      .eq('username', username.toLowerCase())
+      .maybeSingle();
 
     if (existing) {
-      throw new Error('Admin ID already exists');
+      throw new Error('Admin username already exists');
     }
 
     // Add new admin
     const { data, error } = await supabase
       .from('admin_credentials')
       .insert({
-        admin_id: adminId,
-        password: password,
-        name: name,
-        email: email || null,
+        username: username.toLowerCase(),
+        password_hash: password,
         can_manage_admins: canManageAdmins,
+        is_active: true,
       })
       .select()
       .single();
@@ -110,13 +106,13 @@ export async function addNewAdmin(
   }
 }
 
-// Delete admin (only for admins with can_manage_admins permission)
-export async function deleteAdmin(adminId: string) {
+// Delete admin
+export async function deleteAdmin(id: string) {
   try {
     const { error } = await supabase
       .from('admin_credentials')
       .delete()
-      .eq('admin_id', adminId);
+      .eq('id', id);
 
     if (error) throw error;
     return { success: true };
@@ -125,12 +121,12 @@ export async function deleteAdmin(adminId: string) {
   }
 }
 
-// Get all admins (only for admins with can_manage_admins permission)
+// Get all admins
 export async function getAllAdmins() {
   try {
     const { data, error } = await supabase
       .from('admin_credentials')
-      .select('id, admin_id, name, email, can_manage_admins, created_at')
+      .select('id, username, can_manage_admins, is_active, created_at')
       .order('created_at', { ascending: false });
 
     if (error) throw error;
@@ -141,12 +137,12 @@ export async function getAllAdmins() {
 }
 
 // Update admin password
-export async function updateAdminPassword(adminId: string, newPassword: string) {
+export async function updateAdminPassword(id: string, newPassword: string) {
   try {
     const { error } = await supabase
       .from('admin_credentials')
-      .update({ password: newPassword, updated_at: new Date().toISOString() })
-      .eq('admin_id', adminId);
+      .update({ password_hash: newPassword, updated_at: new Date().toISOString() })
+      .eq('id', id);
 
     if (error) throw error;
     return { success: true };
@@ -157,19 +153,34 @@ export async function updateAdminPassword(adminId: string, newPassword: string) 
 
 // Update admin permissions
 export async function updateAdminPermissions(
-  adminId: string,
+  id: string,
   canManageAdmins: boolean
 ) {
   try {
     const { error } = await supabase
       .from('admin_credentials')
       .update({ can_manage_admins: canManageAdmins, updated_at: new Date().toISOString() })
-      .eq('admin_id', adminId);
+      .eq('id', id);
 
     if (error) throw error;
     return { success: true };
   } catch (error: any) {
     throw new Error(error.message || 'Failed to update permissions');
+  }
+}
+
+// Toggle admin active status
+export async function toggleAdminStatus(id: string, isActive: boolean) {
+  try {
+    const { error } = await supabase
+      .from('admin_credentials')
+      .update({ is_active: isActive, updated_at: new Date().toISOString() })
+      .eq('id', id);
+
+    if (error) throw error;
+    return { success: true };
+  } catch (error: any) {
+    throw new Error(error.message || 'Failed to update status');
   }
 }
 
