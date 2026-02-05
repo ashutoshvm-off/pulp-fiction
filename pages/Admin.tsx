@@ -58,7 +58,7 @@ export const Admin: React.FC = () => {
   const [showAddForm, setShowAddForm] = useState(false);
   const [deletingProduct, setDeletingProduct] = useState<string | null>(null);
   const [deletingOrder, setDeletingOrder] = useState<string | null>(null);
-  
+
   // Fee settings state
   const [feeSettings, setFeeSettings] = useState<FeeSettings>(DEFAULT_FEES);
   const [savingFees, setSavingFees] = useState(false);
@@ -152,6 +152,21 @@ export const Admin: React.FC = () => {
     return () => clearInterval(interval);
   }, [editingProduct, showAddForm, selectedOrder]);
 
+  const handleOrderClick = async (order: AdminOrderSummary) => {
+    setLoading(true);
+    setError(null);
+    try {
+      // Fetch full order details including items
+      const fullOrderDetails = await getOrderDetails(order.id);
+      setSelectedOrder(fullOrderDetails);
+    } catch (err: any) {
+      setError(err.message || 'Failed to load order details');
+      setSelectedOrder(order); // Fallback to basic order info
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleOrderStatusChange = async (orderId: string, newStatus: OrderStatus) => {
     try {
       await updateOrderStatus(orderId, newStatus);
@@ -189,7 +204,7 @@ export const Admin: React.FC = () => {
         isBestSeller: editingProduct.isBestSeller,
         isNew: editingProduct.isNew,
       });
-      
+
       // Update local state
       setProducts(products.map(p =>
         p.id === editingProduct.id ? updatedProduct : p
@@ -217,7 +232,7 @@ export const Admin: React.FC = () => {
     try {
       // Generate ID from name
       const productId = newProduct.id || newProduct.name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
-      
+
       const createdProduct = await createProduct({
         id: productId,
         name: newProduct.name!,
@@ -282,42 +297,42 @@ export const Admin: React.FC = () => {
 
     setDeletingOrder(orderId);
     setError(null);
-    
+
     try {
       // Delete order items first (they reference the order)
       const { error: itemsError } = await supabase
         .from('order_items')
         .delete()
         .eq('order_id', orderId);
-      
+
       if (itemsError) {
         console.error('Error deleting order items:', itemsError);
         throw new Error(`Failed to delete order items: ${itemsError.message}`);
       }
-      
+
       // Then delete the order
       const { error: orderError } = await supabase
         .from('orders')
         .delete()
         .eq('id', orderId);
-      
+
       if (orderError) {
         console.error('Error deleting order:', orderError);
         throw new Error(`Failed to delete order: ${orderError.message}`);
       }
-      
+
       // Update local state only after successful delete
       setOrders(prev => prev.filter(order => order.id !== orderId));
       if (selectedOrder?.id === orderId) {
         setSelectedOrder(null);
       }
-      
+
       // Also update orderStats
       setOrderStats(prev => ({
         ...prev,
         totalOrders: prev.totalOrders - 1
       }));
-      
+
     } catch (err: any) {
       console.error('Delete order error:', err);
       setError(err.message || 'Failed to delete order');
@@ -346,7 +361,7 @@ export const Admin: React.FC = () => {
     try {
       const tempId = newProduct.name?.toLowerCase().replace(/\s+/g, '-') || `new-product-${Date.now()}`;
       const result = await uploadProductImage(file, tempId);
-      
+
       if (result.success && result.url) {
         setNewProduct({ ...newProduct, image: result.url });
       } else {
@@ -383,7 +398,7 @@ export const Admin: React.FC = () => {
 
     try {
       const result = await uploadProductImage(file, editingProduct.id);
-      
+
       if (result.success && result.url) {
         setEditingProduct({ ...editingProduct, image: result.url });
       } else {
@@ -415,7 +430,7 @@ export const Admin: React.FC = () => {
       free_shipping_threshold: 500,
       is_active: true,
     };
-    
+
     try {
       const { data, error } = await supabase
         .from('app_settings')
@@ -428,7 +443,7 @@ export const Admin: React.FC = () => {
         setFeeSettings(defaultFees);
         return;
       }
-      
+
       if (data?.value) {
         setFeeSettings(data.value as FeeSettings);
       } else {
@@ -553,7 +568,7 @@ export const Admin: React.FC = () => {
 
   const handleDeleteAgent = async (id: string) => {
     if (!window.confirm('Are you sure you want to delete this delivery agent?')) return;
-    
+
     setDeletingAgent(id);
     try {
       await deleteDeliveryAgent(id);
@@ -605,62 +620,56 @@ export const Admin: React.FC = () => {
         <div className="max-w-7xl mx-auto flex overflow-x-auto">
           <button
             onClick={() => setActiveTab('dashboard')}
-            className={`px-6 py-4 font-medium border-b-2 transition whitespace-nowrap ${
-              activeTab === 'dashboard'
-                ? 'border-green-600 text-green-600'
-                : 'border-transparent text-gray-600 hover:text-gray-900'
-            }`}
+            className={`px-6 py-4 font-medium border-b-2 transition whitespace-nowrap ${activeTab === 'dashboard'
+              ? 'border-green-600 text-green-600'
+              : 'border-transparent text-gray-600 hover:text-gray-900'
+              }`}
           >
             Dashboard
           </button>
           <button
             onClick={() => setActiveTab('orders')}
-            className={`px-6 py-4 font-medium border-b-2 transition whitespace-nowrap ${
-              activeTab === 'orders'
-                ? 'border-green-600 text-green-600'
-                : 'border-transparent text-gray-600 hover:text-gray-900'
-            }`}
+            className={`px-6 py-4 font-medium border-b-2 transition whitespace-nowrap ${activeTab === 'orders'
+              ? 'border-green-600 text-green-600'
+              : 'border-transparent text-gray-600 hover:text-gray-900'
+              }`}
           >
             Orders
           </button>
           <button
             onClick={() => setActiveTab('products')}
-            className={`px-6 py-4 font-medium border-b-2 transition whitespace-nowrap ${
-              activeTab === 'products'
-                ? 'border-green-600 text-green-600'
-                : 'border-transparent text-gray-600 hover:text-gray-900'
-            }`}
+            className={`px-6 py-4 font-medium border-b-2 transition whitespace-nowrap ${activeTab === 'products'
+              ? 'border-green-600 text-green-600'
+              : 'border-transparent text-gray-600 hover:text-gray-900'
+              }`}
           >
             Products
           </button>
           <button
             onClick={() => setActiveTab('settings')}
-            className={`px-6 py-4 font-medium border-b-2 transition whitespace-nowrap ${
-              activeTab === 'settings'
-                ? 'border-green-600 text-green-600'
-                : 'border-transparent text-gray-600 hover:text-gray-900'
-            }`}
+            className={`px-6 py-4 font-medium border-b-2 transition whitespace-nowrap ${activeTab === 'settings'
+              ? 'border-green-600 text-green-600'
+              : 'border-transparent text-gray-600 hover:text-gray-900'
+              }`}
           >
             Settings
           </button>
           <button
             onClick={() => setActiveTab('delivery')}
-            className={`px-6 py-4 font-medium border-b-2 transition whitespace-nowrap ${
-              activeTab === 'delivery'
-                ? 'border-green-600 text-green-600'
-                : 'border-transparent text-gray-600 hover:text-gray-900'
-            }`}
+            className={`px-6 py-4 font-medium border-b-2 transition whitespace-nowrap ${activeTab === 'delivery'
+              ? 'border-green-600 text-green-600'
+              : 'border-transparent text-gray-600 hover:text-gray-900'
+              }`}
           >
             Delivery Agents
           </button>
           {adminUser?.can_manage_admins && (
             <button
               onClick={() => setActiveTab('admin')}
-              className={`px-6 py-4 font-medium border-b-2 transition whitespace-nowrap ${
-                activeTab === 'admin'
-                  ? 'border-green-600 text-green-600'
-                  : 'border-transparent text-gray-600 hover:text-gray-900'
-              }`}
+              className={`px-6 py-4 font-medium border-b-2 transition whitespace-nowrap ${activeTab === 'admin'
+                ? 'border-green-600 text-green-600'
+                : 'border-transparent text-gray-600 hover:text-gray-900'
+                }`}
             >
               Manage Admins
             </button>
@@ -681,7 +690,7 @@ export const Admin: React.FC = () => {
         {activeTab === 'dashboard' && (
           <div>
             <h2 className="text-2xl font-bold text-gray-900 mb-6">Overview</h2>
-            
+
             {/* Stats Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
               {/* Total Users */}
@@ -769,12 +778,11 @@ export const Admin: React.FC = () => {
                         <td className="px-6 py-3 text-sm text-gray-600">{order.customer_name}</td>
                         <td className="px-6 py-3 text-sm font-medium text-gray-900">₹{order.total_amount.toFixed(2)}</td>
                         <td className="px-6 py-3 text-sm">
-                          <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                            order.status === 'delivered' ? 'bg-green-100 text-green-800' :
+                          <span className={`px-3 py-1 rounded-full text-xs font-semibold ${order.status === 'delivered' ? 'bg-green-100 text-green-800' :
                             order.status === 'shipped' ? 'bg-blue-100 text-blue-800' :
-                            order.status === 'confirmed' ? 'bg-yellow-100 text-yellow-800' :
-                            'bg-gray-100 text-gray-800'
-                          }`}>
+                              order.status === 'confirmed' ? 'bg-yellow-100 text-yellow-800' :
+                                'bg-gray-100 text-gray-800'
+                            }`}>
                             {order.status}
                           </span>
                         </td>
@@ -815,21 +823,19 @@ export const Admin: React.FC = () => {
                       {orders.map((order) => (
                         <tr
                           key={order.id}
-                          onClick={() => setSelectedOrder(order)}
-                          className={`border-b border-gray-200 hover:bg-gray-50 cursor-pointer ${
-                            selectedOrder?.id === order.id ? 'bg-green-50' : ''
-                          }`}
+                          onClick={() => handleOrderClick(order)}
+                          className={`border-b border-gray-200 hover:bg-gray-50 cursor-pointer ${selectedOrder?.id === order.id ? 'bg-green-50' : ''
+                            }`}
                         >
                           <td className="px-6 py-3 text-sm font-medium text-gray-900">{order.order_number}</td>
                           <td className="px-6 py-3 text-sm text-gray-600">{order.customer_name}</td>
                           <td className="px-6 py-3 text-sm font-medium text-gray-900">₹{order.total_amount.toFixed(2)}</td>
                           <td className="px-6 py-3 text-sm">
-                            <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                              order.status === 'delivered' ? 'bg-green-100 text-green-800' :
+                            <span className={`px-3 py-1 rounded-full text-xs font-semibold ${order.status === 'delivered' ? 'bg-green-100 text-green-800' :
                               order.status === 'shipped' ? 'bg-blue-100 text-blue-800' :
-                              order.status === 'confirmed' ? 'bg-yellow-100 text-yellow-800' :
-                              'bg-gray-100 text-gray-800'
-                            }`}>
+                                order.status === 'confirmed' ? 'bg-yellow-100 text-yellow-800' :
+                                  'bg-gray-100 text-gray-800'
+                              }`}>
                               {order.status}
                             </span>
                           </td>
@@ -863,7 +869,7 @@ export const Admin: React.FC = () => {
               {selectedOrder ? (
                 <div className="bg-white rounded-lg shadow p-6">
                   <h3 className="text-lg font-semibold text-gray-900 mb-4">Order Details</h3>
-                  
+
                   <div className="space-y-4">
                     <div>
                       <p className="text-sm text-gray-600">Order Number</p>
@@ -872,8 +878,14 @@ export const Admin: React.FC = () => {
 
                     <div>
                       <p className="text-sm text-gray-600">Customer</p>
-                      <p className="font-semibold text-gray-900">{selectedOrder.customer_name}</p>
-                      <p className="text-sm text-gray-600">{selectedOrder.customer_email}</p>
+                      <p className="font-semibold text-gray-900">{selectedOrder.customer_name || selectedOrder.profiles?.full_name || 'Unknown'}</p>
+                      <p className="text-sm text-gray-600">{selectedOrder.customer_email || selectedOrder.profiles?.email || 'No email'}</p>
+                      {(selectedOrder.profiles?.phone || selectedOrder.phone) && (
+                        <p className="text-sm font-medium text-green-600 mt-1 flex items-center gap-1">
+                          <span className="material-symbols-outlined text-base">call</span>
+                          {selectedOrder.profiles?.phone || selectedOrder.phone}
+                        </p>
+                      )}
                     </div>
 
                     <div>
@@ -898,11 +910,10 @@ export const Admin: React.FC = () => {
 
                     <div>
                       <p className="text-sm text-gray-600 mb-2">Payment Status</p>
-                      <p className={`px-3 py-1 rounded inline-block text-xs font-semibold ${
-                        selectedOrder.payment_status === 'paid' ? 'bg-green-100 text-green-800' :
+                      <p className={`px-3 py-1 rounded inline-block text-xs font-semibold ${selectedOrder.payment_status === 'paid' ? 'bg-green-100 text-green-800' :
                         selectedOrder.payment_status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                        'bg-red-100 text-red-800'
-                      }`}>
+                          'bg-red-100 text-red-800'
+                        }`}>
                         {selectedOrder.payment_status}
                       </p>
                     </div>
@@ -911,6 +922,55 @@ export const Admin: React.FC = () => {
                       <p className="text-sm text-gray-600">Date</p>
                       <p className="text-gray-900">{new Date(selectedOrder.created_at).toLocaleString()}</p>
                     </div>
+
+                    {/* Order Items Section */}
+                    {selectedOrder.order_items && selectedOrder.order_items.length > 0 && (
+                      <div className="pt-4 border-t border-gray-200">
+                        <p className="text-sm font-semibold text-gray-900 mb-3">Order Items</p>
+                        <div className="space-y-3">
+                          {selectedOrder.order_items.map((item: any) => (
+                            <div key={item.id} className="flex justify-between items-start p-3 bg-gray-50 rounded-lg">
+                              <div className="flex-1">
+                                <p className="font-medium text-gray-900">{item.product_name}</p>
+                                <div className="flex gap-4 mt-1 text-sm text-gray-600">
+                                  <span className="text-xs bg-gray-200 px-2 py-0.5 rounded">ID: {item.product_id}</span>
+                                  <span>Qty: {item.quantity}</span>
+                                  <span>₹{item.unit_price.toFixed(2)} each</span>
+                                  {item.sugar_option && (
+                                    <span className="text-green-600">• {item.sugar_option}</span>
+                                  )}
+                                </div>
+                              </div>
+                              <div className="text-right">
+                                <p className="font-semibold text-gray-900">₹{item.subtotal.toFixed(2)}</p>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Shipping Address if available */}
+                    {selectedOrder.shipping_address && (
+                      <div className="pt-4 border-t border-gray-200">
+                        <p className="text-sm font-semibold text-gray-900 mb-2">Shipping Address</p>
+                        <div className="text-sm text-gray-600 space-y-1">
+                          <p>{selectedOrder.shipping_address.street}</p>
+                          <p>{selectedOrder.shipping_address.city}, {selectedOrder.shipping_address.state} {selectedOrder.shipping_address.postal_code}</p>
+                          {selectedOrder.shipping_address.phone && (
+                            <p>Phone: {selectedOrder.shipping_address.phone}</p>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Notes if available */}
+                    {selectedOrder.notes && (
+                      <div className="pt-4 border-t border-gray-200">
+                        <p className="text-sm font-semibold text-gray-900 mb-2">Order Notes</p>
+                        <p className="text-sm text-gray-600">{selectedOrder.notes}</p>
+                      </div>
+                    )}
                   </div>
                 </div>
               ) : (
@@ -1070,10 +1130,10 @@ export const Admin: React.FC = () => {
                     <input
                       type="text"
                       value={newProduct.ingredientsText !== undefined ? newProduct.ingredientsText : (newProduct.ingredients || []).join(', ')}
-                      onChange={(e) => setNewProduct({ 
-                        ...newProduct, 
+                      onChange={(e) => setNewProduct({
+                        ...newProduct,
                         ingredientsText: e.target.value,
-                        ingredients: e.target.value.split(',').map(i => i.trim()).filter(i => i) 
+                        ingredients: e.target.value.split(',').map(i => i.trim()).filter(i => i)
                       })}
                       onBlur={(e) => setNewProduct({
                         ...newProduct,
@@ -1090,10 +1150,10 @@ export const Admin: React.FC = () => {
                     <input
                       type="text"
                       value={newProduct.benefitsText !== undefined ? newProduct.benefitsText : (newProduct.benefits || []).join(', ')}
-                      onChange={(e) => setNewProduct({ 
-                        ...newProduct, 
+                      onChange={(e) => setNewProduct({
+                        ...newProduct,
                         benefitsText: e.target.value,
-                        benefits: e.target.value.split(',').map(b => b.trim()).filter(b => b) 
+                        benefits: e.target.value.split(',').map(b => b.trim()).filter(b => b)
                       })}
                       onBlur={(e) => setNewProduct({
                         ...newProduct,
@@ -1134,7 +1194,7 @@ export const Admin: React.FC = () => {
                 </div>
               </div>
             )}
-            
+
             {editingProduct ? (
               <div className="bg-white rounded-lg shadow p-6 mb-6">
                 <h3 className="text-lg font-semibold text-gray-900 mb-4">Edit Product</h3>
@@ -1178,7 +1238,7 @@ export const Admin: React.FC = () => {
                           </label>
                           <p className="text-xs text-gray-500 mt-1">Upload to Supabase Storage (JPEG, PNG, WebP, GIF - max 5MB)</p>
                         </div>
-                        
+
                         {/* URL Input */}
                         <div>
                           <p className="text-xs text-gray-500 mb-1">Or enter image URL directly:</p>
@@ -1258,8 +1318,8 @@ export const Admin: React.FC = () => {
                     <input
                       type="text"
                       value={editingProduct.ingredientsText !== undefined ? editingProduct.ingredientsText : (editingProduct.ingredients || []).join(', ')}
-                      onChange={(e) => setEditingProduct({ 
-                        ...editingProduct, 
+                      onChange={(e) => setEditingProduct({
+                        ...editingProduct,
                         ingredientsText: e.target.value
                       })}
                       onBlur={(e) => setEditingProduct({
@@ -1277,8 +1337,8 @@ export const Admin: React.FC = () => {
                     <input
                       type="text"
                       value={editingProduct.benefitsText !== undefined ? editingProduct.benefitsText : (editingProduct.benefits || []).join(', ')}
-                      onChange={(e) => setEditingProduct({ 
-                        ...editingProduct, 
+                      onChange={(e) => setEditingProduct({
+                        ...editingProduct,
                         benefitsText: e.target.value
                       })}
                       onBlur={(e) => setEditingProduct({
@@ -1381,11 +1441,10 @@ export const Admin: React.FC = () => {
         {activeTab === 'settings' && (
           <div>
             <h2 className="text-2xl font-bold text-gray-900 mb-6">Fee Management</h2>
-            
+
             {feeMessage && (
-              <div className={`p-4 rounded-lg mb-6 ${
-                feeMessage.type === 'success' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-              }`}>
+              <div className={`p-4 rounded-lg mb-6 ${feeMessage.type === 'success' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                }`}>
                 {feeMessage.text}
               </div>
             )}
@@ -1394,7 +1453,7 @@ export const Admin: React.FC = () => {
               <div className="bg-white rounded-lg shadow p-6 space-y-6">
                 <div>
                   <h3 className="text-lg font-semibold text-gray-900 border-b pb-2 mb-4">Delivery Fees</h3>
-                  
+
                   <div className="space-y-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -1428,7 +1487,7 @@ export const Admin: React.FC = () => {
 
                 <div>
                   <h3 className="text-lg font-semibold text-gray-900 border-b pb-2 mb-4">Additional Charges</h3>
-                  
+
                   <div className="space-y-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -1572,7 +1631,7 @@ export const Admin: React.FC = () => {
                         Add Agent
                       </>
                     )
-                  }</button>
+                    }</button>
                   <button
                     onClick={() => {
                       setShowAddAgentForm(false);
@@ -1638,11 +1697,10 @@ export const Admin: React.FC = () => {
                         <td className="px-6 py-4 whitespace-nowrap">
                           <button
                             onClick={() => handleToggleAgentStatus(agent)}
-                            className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium cursor-pointer transition ${
-                              agent.is_active
-                                ? 'bg-green-100 text-green-800 hover:bg-green-200'
-                                : 'bg-red-100 text-red-800 hover:bg-red-200'
-                            }`}
+                            className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium cursor-pointer transition ${agent.is_active
+                              ? 'bg-green-100 text-green-800 hover:bg-green-200'
+                              : 'bg-red-100 text-red-800 hover:bg-red-200'
+                              }`}
                           >
                             {agent.is_active ? 'Active' : 'Inactive'}
                           </button>

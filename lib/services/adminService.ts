@@ -73,7 +73,8 @@ export async function getOrderDetails(orderId: string) {
           product_name,
           quantity,
           unit_price,
-          subtotal
+          subtotal,
+          sugar_option
         ),
         profiles:profile_id(
           email,
@@ -97,7 +98,7 @@ export async function updateOrderStatus(orderId: string, status: string) {
   try {
     const { data, error } = await supabase
       .from('orders')
-      .update({ 
+      .update({
         status,
         updated_at: new Date().toISOString(),
         shipped_at: status === 'shipped' ? new Date().toISOString() : null,
@@ -139,7 +140,7 @@ export async function getUserStats() {
     if (error) throw error;
 
     const totalUsers = data?.length || 0;
-    
+
     // Calculate new users this month
     const now = new Date();
     const monthAgo = new Date(now.getFullYear(), now.getMonth() - 1, now.getDate());
