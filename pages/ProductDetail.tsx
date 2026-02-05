@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useCart } from '../context/CartContext';
+import { fetchProductById } from '../lib/services/productService';
 import { Product } from '../types';
-import { getProduct } from '../lib/services/productService';
 
 export const ProductDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -10,18 +10,16 @@ export const ProductDetail: React.FC = () => {
   const [product, setProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState(true);
   const [quantity, setQuantity] = useState(1);
-  const [selectedSugar, setSelectedSugar] = useState<'regular' | 'sugarless'>('regular');
 
   useEffect(() => {
     const loadProduct = async () => {
       if (!id) return;
       setLoading(true);
       try {
-        const dbProduct = await getProduct(id);
-        setProduct(dbProduct);
+        const fetchedProduct = await fetchProductById(id);
+        setProduct(fetchedProduct);
       } catch (error) {
         console.error('Failed to load product:', error);
-        setProduct(null);
       } finally {
         setLoading(false);
       }
@@ -29,166 +27,150 @@ export const ProductDetail: React.FC = () => {
     loadProduct();
   }, [id]);
 
-  if (loading) return <div className="p-10 text-center">Loading...</div>;
-  if (!product) return (
-    <div className="p-10 text-center">
-      <h2 className="text-2xl font-bold text-gray-900 mb-4">Product not found</h2>
-      <Link to="/shop" className="text-primary hover:underline">Back to Shop</Link>
-    </div>
-  );
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center min-h-[400px]">
+        <span className="material-symbols-outlined text-4xl text-gray-400 animate-spin">progress_activity</span>
+      </div>
+    );
+  }
+
+  if (!product) {
+    return (
+      <div className="text-center py-20">
+        <h2 className="text-2xl font-bold text-gray-900 mb-4">Product not found</h2>
+        <Link to="/shop" className="text-primary font-medium hover:underline">Back to Shop</Link>
+      </div>
+    );
+  }
+
+  const handleAddToCart = () => {
+    for (let i = 0; i < quantity; i++) {
+      addToCart(product);
+    }
+  };
 
   return (
-    <div className="animate-fade-in">
-      {/* Breadcrumbs */}
-      <div className="w-full max-w-[1280px] mx-auto py-4">
-        <nav className="flex text-sm text-text-muted dark:text-gray-400">
-          <ol className="flex items-center space-x-2">
-            <li><Link to="/" className="hover:text-primary transition-colors">Home</Link></li>
-            <li><span className="material-symbols-outlined text-sm">chevron_right</span></li>
-            <li><Link to="/shop" className="hover:text-primary transition-colors">Shop</Link></li>
-            <li><span className="material-symbols-outlined text-sm">chevron_right</span></li>
-            <li className="font-semibold text-text-main dark:text-white">{product.name}</li>
-          </ol>
-        </nav>
-      </div>
+    <div className="max-w-6xl mx-auto">
+      <Link to="/shop" className="inline-flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-6 transition-colors">
+        <span className="material-symbols-outlined">arrow_back</span>
+        <span className="font-medium">Back to Shop</span>
+      </Link>
 
-      <section className="max-w-[1280px] mx-auto pb-12 lg:pb-24">
-        <div className="grid lg:grid-cols-2 gap-12 lg:gap-20 items-start">
+      <div className="grid md:grid-cols-2 gap-8 lg:gap-12">
+        {/* Product Image */}
+        <div className="bg-gray-50 rounded-2xl p-8 flex items-center justify-center">
+          <img 
+            src={product.image} 
+            alt={product.name} 
+            className="w-full max-w-md object-contain mix-blend-multiply"
+          />
+        </div>
 
-          {/* Gallery Side */}
-          <div className="flex flex-col gap-4">
-            <div className="relative w-full aspect-[4/5] lg:aspect-square bg-[#ebf3e7] dark:bg-[#1f2e1a] rounded-3xl overflow-hidden flex items-center justify-center p-8 group">
-              <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-white/40 via-transparent to-transparent opacity-60"></div>
-              <img src={product.image} alt={product.name} className="w-full h-full object-contain transform transition-transform duration-700 hover:scale-105 z-10 mix-blend-multiply dark:mix-blend-normal" />
-              {product.isBestSeller && (
-                <div className="absolute top-6 left-6 z-20">
-                  <span className="px-3 py-1.5 bg-white dark:bg-surface-dark text-text-main dark:text-white text-xs font-bold uppercase tracking-wider rounded-full shadow-sm">Best Seller</span>
-                </div>
-              )}
-            </div>
-            {/* Thumbnails - just show main product image */}
-            <div className="grid grid-cols-4 gap-4">
-              <button className="aspect-square rounded-xl bg-[#ebf3e7] dark:bg-[#1f2e1a] overflow-hidden border-2 border-primary p-2 transition-colors">
-                <img src={product.image} className="w-full h-full object-contain mix-blend-multiply dark:mix-blend-normal" />
-              </button>
-              <div className="aspect-square rounded-xl bg-[#f9fcf8] dark:bg-surface-dark overflow-hidden border-2 border-transparent flex items-center justify-center text-text-muted cursor-pointer hover:bg-[#ebf3e7] dark:hover:bg-[#2a3f23] transition-colors">
-                <span className="material-symbols-outlined">zoom_in</span>
-              </div>
-            </div>
-          </div>
+        {/* Product Info */}
+        <div className="flex flex-col">
+          {/* Product Name - Fixed: changed from text-white to text-gray-900 */}
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">{product.name}</h1>
 
-          {/* Info Side */}
-          <div className="flex flex-col py-2 lg:py-6">
-            <div className="flex justify-between items-start">
-              <div>
-                <h1 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-gray-900 dark:text-white tracking-tight mb-2 font-serif">{product.name}</h1>
-                <div className="flex items-center gap-2 mb-6">
-                  <div className="flex gap-0.5 text-primary text-sm">
-                    {[...Array(5)].map((_, i) => (
-                      <span key={i} className={`material-symbols-outlined text-[18px] ${i < Math.floor(product.rating) ? 'filled' : ''}`}>star</span>
-                    ))}
-                  </div>
-                  <span className="text-sm font-medium text-text-muted dark:text-gray-400">({product.reviews} Reviews)</span>
-                </div>
-              </div>
-              <div className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white font-serif">₹{product.price.toFixed(2)}</div>
-            </div>
-
-            <p className="text-text-muted dark:text-gray-300 text-lg leading-relaxed mb-8 font-light">
-              {product.description}
-            </p>
-
-            {/* Sugar Option Selector */}
-            <div className="mb-8">
-              <h3 className="text-sm font-bold text-gray-900 dark:text-white uppercase tracking-wider mb-3">Sugar Preference</h3>
-              <div className="flex flex-wrap gap-3">
-                <button
-                  onClick={() => setSelectedSugar('regular')}
-                  className={`px-6 py-3 rounded-lg border text-sm font-bold transition-all ${selectedSugar === 'regular'
-                    ? 'border-2 border-primary bg-primary/10 text-primary'
-                    : 'border-[#ebf3e7] dark:border-[#2a3f23] text-gray-700 hover:border-primary/50 bg-white dark:bg-surface-dark'
-                    }`}
+          {/* Rating - Fixed: changed star and review text colors */}
+          <div className="flex items-center gap-2 mb-4">
+            <div className="flex text-yellow-400">
+              {[...Array(5)].map((_, i) => (
+                <span 
+                  key={i} 
+                  className={`material-symbols-outlined text-lg ${i < Math.floor(product.rating) ? 'filled' : ''}`}
                 >
-                  Regular (With Sugar)
-                </button>
-                <button
-                  onClick={() => setSelectedSugar('sugarless')}
-                  className={`px-6 py-3 rounded-lg border text-sm font-bold transition-all ${selectedSugar === 'sugarless'
-                    ? 'border-2 border-primary bg-primary/10 text-primary'
-                    : 'border-[#ebf3e7] dark:border-[#2a3f23] text-gray-700 hover:border-primary/50 bg-white dark:bg-surface-dark'
-                    }`}
-                >
-                  Sugarless (No Added Sugar)
-                </button>
-              </div>
-            </div>
-
-            {/* Add to Cart */}
-            <div className="flex flex-col sm:flex-row gap-4 mb-10 border-b border-[#ebf3e7] dark:border-[#2a3f23] pb-10">
-              <div className="flex items-center bg-[#f9fcf8] dark:bg-background-dark rounded-xl border border-[#ebf3e7] dark:border-[#2a3f23] w-fit">
-                <button onClick={() => setQuantity(Math.max(1, quantity - 1))} className="p-4 text-text-muted hover:text-primary transition-colors">
-                  <span className="material-symbols-outlined text-sm font-bold">remove</span>
-                </button>
-                <span className="px-2 font-bold text-text-main dark:text-white min-w-[2rem] text-center">{quantity}</span>
-                <button onClick={() => setQuantity(quantity + 1)} className="p-4 text-text-muted hover:text-primary transition-colors">
-                  <span className="material-symbols-outlined text-sm font-bold">add</span>
-                </button>
-              </div>
-              <button
-                onClick={() => addToCart({ ...product, sugarPreference: selectedSugar }, quantity)}
-                className="flex-1 bg-gray-900 dark:bg-white hover:bg-black dark:hover:bg-gray-200 text-white dark:text-gray-900 font-bold text-lg py-3.5 px-8 rounded-xl shadow-lg transition-all flex items-center justify-center gap-2 uppercase tracking-widest"
-              >
-                Add to Bag - ₹{(product.price * quantity).toFixed(2)}
-              </button>
-            </div>
-
-            {/* Highlights */}
-            <div className="space-y-4">
-              {product.benefits && product.benefits.map((benefit, i) => (
-                <div key={i} className="flex items-center gap-3">
-                  <div className="p-2 bg-[#ebf3e7] dark:bg-[#2a3f23] rounded-full text-primary">
-                    <span className="material-symbols-outlined text-xl">check_circle</span>
-                  </div>
-                  <div>
-                    <h4 className="font-bold text-text-main dark:text-white text-sm">{benefit}</h4>
-                  </div>
-                </div>
+                  star
+                </span>
               ))}
             </div>
-
+            {/* Fixed: changed from text-white to text-gray-500 */}
+            <span className="text-sm text-gray-500">({product.reviews || 0} Reviews)</span>
           </div>
-        </div>
-      </section>
 
-      {/* Ingredients */}
-      <section className="py-16 bg-[#f9fcf8] dark:bg-background-dark border-t border-[#ebf3e7] dark:border-[#2a3f23]">
-        <div className="max-w-[1280px] mx-auto px-4 sm:px-6 lg:px-8">
-          <h2 className="text-2xl font-bold text-text-main dark:text-white mb-8 text-center font-serif">Key Ingredients</h2>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
-            {product.ingredients?.map((ing, i) => (
-              <div key={i} className="flex flex-col items-center text-center group">
-                <div className="w-20 h-20 rounded-full bg-white dark:bg-surface-dark shadow-sm flex items-center justify-center mb-4 group-hover:scale-110 transition-all border border-[#ebf3e7] dark:border-white/5">
-                  <span className="material-symbols-outlined text-4xl text-primary font-light">eco</span>
-                </div>
-                <h3 className="font-bold text-text-main dark:text-white mb-1">{ing}</h3>
-                <p className="text-sm text-text-muted dark:text-gray-400">100% Organic</p>
+          {/* Price - Fixed: changed from text-white to text-gray-900 */}
+          <div className="flex items-baseline gap-1 mb-6">
+            <span className="text-lg text-gray-900">₹</span>
+            <span className="text-3xl font-bold text-gray-900">{product.price.toFixed(2)}</span>
+          </div>
+
+          {/* Description */}
+          <p className="text-gray-600 mb-6 leading-relaxed">{product.description}</p>
+
+          {/* Benefits */}
+          {product.benefits && product.benefits.length > 0 && (
+            <div className="mb-6">
+              <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wider mb-3">Benefits</h3>
+              <div className="flex flex-wrap gap-2">
+                {product.benefits.map((benefit, index) => (
+                  <span key={index} className="px-3 py-1 bg-green-100 text-green-700 text-sm font-medium rounded-full">
+                    {benefit}
+                  </span>
+                ))}
               </div>
-            ))}
+            </div>
+          )}
+
+          {/* Ingredients */}
+          {product.ingredients && product.ingredients.length > 0 && (
+            <div className="mb-6">
+              <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wider mb-3">Ingredients</h3>
+              <div className="flex flex-wrap gap-2">
+                {product.ingredients.map((ingredient, index) => (
+                  <span key={index} className="px-3 py-1 bg-gray-100 text-gray-700 text-sm font-medium rounded-full">
+                    {ingredient}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Quantity Selector */}
+          <div className="flex items-center gap-4 mb-6">
+            <span className="text-sm font-bold text-gray-900">Quantity:</span>
+            <div className="flex items-center border border-gray-200 rounded-lg">
+              <button 
+                onClick={() => setQuantity(Math.max(1, quantity - 1))}
+                className="px-3 py-2 text-gray-600 hover:text-gray-900 transition-colors"
+              >
+                <span className="material-symbols-outlined">remove</span>
+              </button>
+              <span className="px-4 py-2 font-bold text-gray-900 min-w-[3rem] text-center">{quantity}</span>
+              <button 
+                onClick={() => setQuantity(quantity + 1)}
+                className="px-3 py-2 text-gray-600 hover:text-gray-900 transition-colors"
+              >
+                <span className="material-symbols-outlined">add</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Add to Cart Button */}
+          <button
+            onClick={handleAddToCart}
+            className="w-full bg-primary hover:bg-primary-hover text-black font-bold py-4 rounded-xl transition-colors flex items-center justify-center gap-2 shadow-lg"
+          >
+            <span className="material-symbols-outlined">shopping_cart</span>
+            Add to Cart - ₹{(product.price * quantity).toFixed(2)}
+          </button>
+
+          {/* Tags */}
+          <div className="flex flex-wrap gap-3 mt-6">
+            {product.isBestSeller && (
+              <span className="inline-flex items-center gap-1 px-3 py-1 bg-orange-100 text-orange-700 text-sm font-medium rounded-full">
+                <span className="material-symbols-outlined text-sm">local_fire_department</span>
+                Best Seller
+              </span>
+            )}
+            {product.isNew && (
+              <span className="inline-flex items-center gap-1 px-3 py-1 bg-blue-100 text-blue-700 text-sm font-medium rounded-full">
+                <span className="material-symbols-outlined text-sm">new_releases</span>
+                New
+              </span>
+            )}
           </div>
         </div>
-      </section>
-
-      {/* Reviews - Placeholder for future database reviews */}
-      <section className="py-16 bg-white dark:bg-surface-dark">
-        <div className="max-w-[1280px] mx-auto px-4 sm:px-6 lg:px-8">
-          <h3 className="text-2xl font-bold text-text-main dark:text-white mb-8 font-serif">Customer Reviews</h3>
-          <div className="text-center py-12">
-            <span className="material-symbols-outlined text-6xl text-gray-300 mb-4">rate_review</span>
-            <p className="text-text-muted dark:text-gray-400">No reviews yet. Be the first to review this product!</p>
-          </div>
-        </div>
-      </section>
-
+      </div>
     </div>
   );
 };

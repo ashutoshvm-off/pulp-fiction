@@ -36,34 +36,9 @@ export const fetchProducts = async (): Promise<Product[]> => {
 /**
  * Get a single product by ID
  */
-export const getProduct = async (id: string): Promise<Product | null> => {
-  const { data, error } = await supabase
-    .from('products')
-    .select('*')
-    .eq('id', id)
-    .single();
-
-  if (error) {
-    if (error.code === 'PGRST116') return null; // Not found
-    console.error('Error fetching product:', error);
-    throw error;
-  }
-
-  return {
-    id: data.id,
-    name: data.name,
-    description: data.description || '',
-    price: parseFloat(data.price),
-    image: data.image || '',
-    category: data.category,
-    ingredients: data.ingredients || [],
-    benefits: data.benefits || [],
-    rating: parseFloat(data.rating) || 0,
-    reviews: data.reviews || 0,
-    isBestSeller: data.is_best_seller || false,
-    isNew: data.is_new || false,
-    isAvailable: data.is_available !== false
-  };
+export const fetchProductById = async (productId: string): Promise<Product | null> => {
+  const products = await fetchProducts();
+  return products.find(p => p.id === productId) || null;
 };
 
 /**
@@ -115,7 +90,7 @@ export const createProduct = async (product: Omit<Product, 'rating' | 'reviews'>
  */
 export const updateProduct = async (id: string, updates: Partial<Product>): Promise<Product> => {
   const dbData: Record<string, unknown> = { id };
-  
+
   if (updates.name !== undefined) dbData.name = updates.name;
   if (updates.description !== undefined) dbData.description = updates.description;
   if (updates.price !== undefined) dbData.price = updates.price;
@@ -127,7 +102,6 @@ export const updateProduct = async (id: string, updates: Partial<Product>): Prom
   if (updates.isNew !== undefined) dbData.is_new = updates.isNew;
   if (updates.isAvailable !== undefined) dbData.is_available = updates.isAvailable;
 
-  // Use upsert to handle both insert and update cases
   const { data, error } = await supabase
     .from('products')
     .upsert(dbData, { onConflict: 'id' })
@@ -138,7 +112,6 @@ export const updateProduct = async (id: string, updates: Partial<Product>): Prom
     throw error;
   }
 
-  // Get the first row from result array
   const row = data?.[0];
   if (!row) {
     throw new Error('Failed to update product');

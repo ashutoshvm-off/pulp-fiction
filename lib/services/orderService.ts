@@ -1,57 +1,26 @@
 import { supabase, isSupabaseConfigured } from '../supabase';
 
 export interface OrderItem {
-    id?: string;
-    order_id?: string;
+    id: string;
     product_id: string;
     product_name: string;
     quantity: number;
     unit_price: number;
     subtotal: number;
-    sugar_option?: string; // 'regular' or 'sugarless'
-    notes?: string;
-    created_at?: string;
+    sugar_option?: string;
 }
 
 export interface Order {
-    id?: string;
-    profile_id: string;
+    id: string;
     order_number: string;
     status: 'pending' | 'confirmed' | 'shipped' | 'delivered' | 'cancelled';
     total_amount: number;
-    shipping_address_id?: string;
-    billing_address_id?: string;
-    payment_method?: string;
     payment_status: 'pending' | 'paid' | 'failed' | 'refunded';
-    notes?: string;
-    created_at?: string;
-    updated_at?: string;
+    created_at: string;
+    updated_at: string;
     shipped_at?: string;
     delivered_at?: string;
     items?: OrderItem[];
-}
-
-export interface Subscription {
-    id?: string;
-    profile_id: string;
-    status: 'active' | 'paused' | 'cancelled';
-    frequency: 'weekly' | 'biweekly' | 'monthly';
-    next_delivery_date?: string;
-    box_customization?: Record<string, unknown>;
-    total_price: number;
-    billing_address_id?: string;
-    created_at?: string;
-    updated_at?: string;
-    cancelled_at?: string;
-}
-
-export interface SubscriptionDelivery {
-    id?: string;
-    subscription_id: string;
-    order_id?: string;
-    delivery_date: string;
-    status: 'pending' | 'shipped' | 'delivered' | 'failed';
-    created_at?: string;
 }
 
 /**
@@ -390,4 +359,92 @@ export const updateSubscriptionDeliveryStatus = async (
     }
 
     return data;
+};
+
+/**
+ * Fetch all orders for the current user
+ */
+export const fetchUserOrders = async (): Promise<{ orders: Order[]; error: string | null }> => {
+    if (!isSupabaseConfigured()) {
+        return { orders: [], error: 'Supabase not configured' };
+    }
+
+    try {
+        const { data: orders, error } = await supabase
+            .from('orders')
+            .select(`
+                *,
+                order_items (*)
+            `)
+            .order('created_at', { ascending: false });
+
+        if (error) {
+            console.error('Error fetching orders:', error);
+            return { orders: [], error: error.message };
+        }
+
+        // Transform the data to include items
+        const transformedOrders = (orders || []).map(order => ({
+            ...order,
+            items: order.order_items || []
+        }));
+
+        return { orders: transformedOrders, error: null };
+    } catch (error) {
+        console.error('Order fetch error:', error);
+        return { orders: [], error: 'Failed to fetch orders' };
+    }
+};
+
+/**
+ * Fetch a single order by ID
+ */
+export const fetchOrderById = async (orderId: string): Promise<{ order: Order | null; error: string | null }> => {
+    if (!isSupabaseConfigured()) {
+        return { order: null, error: 'Supabase not configured' };
+    }
+
+    try {
+        const { data: order, error } = await supabase
+            .from('orders')
+            .select(`
+                *,
+                order_items (*)
+            `)
+            .eq('id', orderId)
+            .single();
+
+        if (error) {
+            console.error('Error fetching order:', error);
+            return { order: null, error: error.message };
+        }
+
+        return { 
+            order: order ? { ...order, items: order.order_items || [] } : null, 
+            error: null 
+        };
+    } catch (error) {
+        console.error('Order fetch error:', error);
+        return { order: null, error: 'Failed to fetch order' };
+    }
+};
+
+/**
+ * Get status display info (color, icon, label)
+ */
+export const getStatusInfo = (status: string) => {
+    const statusMap: Record<string, { color: string; bgColor: string; icon: string; label: string }> = {
+        pending: { color: 'text-yellow-700', bgColor: 'bg-yellow-100', icon: 'schedule', label: 'Pending' },
+        confirmed: { color: 'text-blue-700', bgColor: 'bg-blue-100', icon: 'check_circle', label: 'Confirmed' },
+        shipped: { color: 'text-purple-700', bgColor: 'bg-purple-100', icon: 'local_shipping', label: 'Shipped' },
+        delivered: { color: 'text-green-700', bgColor: 'bg-green-100', icon: 'done_all', label: 'Delivered' },
+        cancelled: { color: 'text-red-700', bgColor: 'bg-red-100', icon: 'cancel', label: 'Cancelled' },
+    };
+    return statusMap[status] || statusMap.pending;
+};
+
+export default {
+    fetchUserOrders,
+    fetchOrderById,
+    getStatusInfo,
 };
