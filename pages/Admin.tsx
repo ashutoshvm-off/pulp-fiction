@@ -14,9 +14,26 @@ import { uploadProductImage } from '../lib/services/storageService';
 import { fetchProducts, updateProduct as updateProductInDb, createProduct, deleteProduct } from '../lib/services/productService';
 import { AdminManagement } from './AdminManagement';
 import { Product } from '../types';
+import { supabase } from '../lib/supabase';
 
-type Tab = 'dashboard' | 'orders' | 'products' | 'admin';
+type Tab = 'dashboard' | 'orders' | 'products' | 'admin' | 'settings';
 type OrderStatus = 'pending' | 'confirmed' | 'shipped' | 'delivered' | 'cancelled';
+
+interface FeeSettings {
+  shipping_fee: number;
+  packaging_fee: number;
+  tax_percentage: number;
+  free_shipping_threshold: number;
+  is_active: boolean;
+}
+
+const DEFAULT_FEES: FeeSettings = {
+  shipping_fee: 50,
+  packaging_fee: 10,
+  tax_percentage: 5,
+  free_shipping_threshold: 500,
+  is_active: true,
+};
 
 export const Admin: React.FC = () => {
   const [activeTab, setActiveTab] = useState<Tab>('dashboard');
@@ -33,7 +50,14 @@ export const Admin: React.FC = () => {
   const [savingProduct, setSavingProduct] = useState(false);
   const [showAddForm, setShowAddForm] = useState(false);
   const [deletingProduct, setDeletingProduct] = useState<string | null>(null);
-  const [newProduct, setNewProduct] = useState<Partial<Product>>({
+  const [deletingOrder, setDeletingOrder] = useState<string | null>(null);
+  
+  // Fee settings state
+  const [feeSettings, setFeeSettings] = useState<FeeSettings>(DEFAULT_FEES);
+  const [savingFees, setSavingFees] = useState(false);
+  const [feeMessage, setFeeMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  const [newProduct, setNewProduct] = useState<Partial<Product> & { ingredientsText?: string; benefitsText?: string }>({
     id: '',
     name: '',
     description: '',
@@ -45,6 +69,8 @@ export const Admin: React.FC = () => {
     isAvailable: true,
     isBestSeller: false,
     isNew: true,
+    ingredientsText: '',
+    benefitsText: '',
   });
   const fileInputRef = useRef<HTMLInputElement>(null);
   const newProductFileInputRef = useRef<HTMLInputElement>(null);
@@ -86,6 +112,7 @@ export const Admin: React.FC = () => {
     setAdminUser(session);
 
     loadData();
+    loadFeeSettings();
   }, [navigate]);
 
   // Auto-refresh data every 30 seconds
@@ -194,6 +221,8 @@ export const Admin: React.FC = () => {
         isAvailable: true,
         isBestSeller: false,
         isNew: true,
+        ingredientsText: '',
+        benefitsText: '',
       });
     } catch (err: any) {
       setError(err.message || 'Failed to add product');
@@ -216,6 +245,59 @@ export const Admin: React.FC = () => {
       setError(err.message || 'Failed to delete product');
     } finally {
       setDeletingProduct(null);
+    }
+  };
+
+  const handleDeleteOrder = async (orderId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+
+    if (!window.confirm('Are you sure you want to delete this order? This action cannot be undone.')) {
+      return;
+    }
+
+    setDeletingOrder(orderId);
+    setError(null);
+    
+    try {
+      // Delete order items first (they reference the order)
+      const { error: itemsError } = await supabase
+        .from('order_items')
+        .delete()
+        .eq('order_id', orderId);
+      
+      if (itemsError) {
+        console.error('Error deleting order items:', itemsError);
+        throw new Error(`Failed to delete order items: ${itemsError.message}`);
+      }
+      
+      // Then delete the order
+      const { error: orderError } = await supabase
+        .from('orders')
+        .delete()
+        .eq('id', orderId);
+      
+      if (orderError) {
+        console.error('Error deleting order:', orderError);
+        throw new Error(`Failed to delete order: ${orderError.message}`);
+      }
+      
+      // Update local state only after successful delete
+      setOrders(prev => prev.filter(order => order.id !== orderId));
+      if (selectedOrder?.id === orderId) {
+        setSelectedOrder(null);
+      }
+      
+      // Also update orderStats
+      setOrderStats(prev => ({
+        ...prev,
+        totalOrders: prev.totalOrders - 1
+      }));
+      
+    } catch (err: any) {
+      console.error('Delete order error:', err);
+      setError(err.message || 'Failed to delete order');
+    } finally {
+      setDeletingOrder(null);
     }
   };
 
@@ -300,6 +382,83 @@ export const Admin: React.FC = () => {
     }
   };
 
+  const loadFeeSettings = async () => {
+    const defaultFees: FeeSettings = {
+      shipping_fee: 50,
+      packaging_fee: 10,
+      tax_percentage: 5,
+      free_shipping_threshold: 500,
+      is_active: true,
+    };
+    
+    try {
+      const { data, error } = await supabase
+        .from('app_settings')
+        .select('value')
+        .eq('key', 'fee_settings')
+        .maybeSingle(); // Use maybeSingle to avoid 406 error when no row exists
+
+      if (error) {
+        console.log('Fee settings not found, using defaults');
+        setFeeSettings(defaultFees);
+        return;
+      }
+      
+      if (data?.value) {
+        setFeeSettings(data.value as FeeSettings);
+      } else {
+        setFeeSettings(defaultFees);
+      }
+    } catch (err) {
+      console.log('Using default fees');
+      setFeeSettings(defaultFees);
+    }
+  };
+
+  const saveFeeSettings = async () => {
+    setSavingFees(true);
+    setFeeMessage(null);
+
+    try {
+      // First try to update existing row
+      const { data: existing } = await supabase
+        .from('app_settings')
+        .select('id')
+        .eq('key', 'fee_settings')
+        .maybeSingle();
+
+      let error;
+      if (existing) {
+        // Update existing
+        const result = await supabase
+          .from('app_settings')
+          .update({
+            value: feeSettings,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('key', 'fee_settings');
+        error = result.error;
+      } else {
+        // Insert new
+        const result = await supabase
+          .from('app_settings')
+          .insert({
+            key: 'fee_settings',
+            value: feeSettings,
+          });
+        error = result.error;
+      }
+
+      if (error) throw error;
+      setFeeMessage({ type: 'success', text: 'Fee settings saved successfully!' });
+    } catch (err: any) {
+      console.error('Save fee error:', err);
+      setFeeMessage({ type: 'error', text: err.message || 'Failed to save settings' });
+    } finally {
+      setSavingFees(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
@@ -367,6 +526,16 @@ export const Admin: React.FC = () => {
             }`}
           >
             Products
+          </button>
+          <button
+            onClick={() => setActiveTab('settings')}
+            className={`px-6 py-4 font-medium border-b-2 transition whitespace-nowrap ${
+              activeTab === 'settings'
+                ? 'border-green-600 text-green-600'
+                : 'border-transparent text-gray-600 hover:text-gray-900'
+            }`}
+          >
+            Settings
           </button>
           {adminUser?.can_manage_admins && (
             <button
@@ -523,6 +692,7 @@ export const Admin: React.FC = () => {
                         <th className="px-6 py-3 text-left text-sm font-semibold text-gray-900">Amount</th>
                         <th className="px-6 py-3 text-left text-sm font-semibold text-gray-900">Status</th>
                         <th className="px-6 py-3 text-left text-sm font-semibold text-gray-900">Date</th>
+                        <th className="px-6 py-3 text-right text-sm font-semibold text-gray-900">Action</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -549,6 +719,20 @@ export const Admin: React.FC = () => {
                           </td>
                           <td className="px-6 py-3 text-sm text-gray-600">
                             {new Date(order.created_at).toLocaleDateString()}
+                          </td>
+                          <td className="px-6 py-3 text-right">
+                            <button
+                              onClick={(e) => handleDeleteOrder(order.id, e)}
+                              disabled={deletingOrder === order.id}
+                              className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition disabled:opacity-50"
+                              title="Delete order"
+                            >
+                              {deletingOrder === order.id ? (
+                                <div className="w-5 h-5 border-2 border-red-600 border-t-transparent rounded-full animate-spin"></div>
+                              ) : (
+                                <span className="material-symbols-outlined text-lg">delete</span>
+                              )}
+                            </button>
                           </td>
                         </tr>
                       ))}
@@ -769,10 +953,16 @@ export const Admin: React.FC = () => {
                     <label className="block text-sm font-medium text-gray-700 mb-1">Ingredients (comma separated)</label>
                     <input
                       type="text"
-                      value={(newProduct.ingredients || []).join(', ')}
+                      value={newProduct.ingredientsText !== undefined ? newProduct.ingredientsText : (newProduct.ingredients || []).join(', ')}
                       onChange={(e) => setNewProduct({ 
                         ...newProduct, 
+                        ingredientsText: e.target.value,
                         ingredients: e.target.value.split(',').map(i => i.trim()).filter(i => i) 
+                      })}
+                      onBlur={(e) => setNewProduct({
+                        ...newProduct,
+                        ingredientsText: undefined,
+                        ingredients: e.target.value.split(',').map((i: string) => i.trim()).filter((i: string) => i)
                       })}
                       placeholder="e.g., Apple, Kale, Spinach"
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:border-green-600"
@@ -783,10 +973,16 @@ export const Admin: React.FC = () => {
                     <label className="block text-sm font-medium text-gray-700 mb-1">Benefits (comma separated)</label>
                     <input
                       type="text"
-                      value={(newProduct.benefits || []).join(', ')}
+                      value={newProduct.benefitsText !== undefined ? newProduct.benefitsText : (newProduct.benefits || []).join(', ')}
                       onChange={(e) => setNewProduct({ 
                         ...newProduct, 
+                        benefitsText: e.target.value,
                         benefits: e.target.value.split(',').map(b => b.trim()).filter(b => b) 
+                      })}
+                      onBlur={(e) => setNewProduct({
+                        ...newProduct,
+                        benefitsText: undefined,
+                        benefits: e.target.value.split(',').map((b: string) => b.trim()).filter((b: string) => b)
                       })}
                       placeholder="e.g., Energy, Immunity, Detox"
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:border-green-600"
@@ -945,10 +1141,15 @@ export const Admin: React.FC = () => {
                     <label className="block text-sm font-medium text-gray-700 mb-1">Ingredients (comma separated)</label>
                     <input
                       type="text"
-                      value={(editingProduct.ingredients || []).join(', ')}
+                      value={editingProduct.ingredientsText !== undefined ? editingProduct.ingredientsText : (editingProduct.ingredients || []).join(', ')}
                       onChange={(e) => setEditingProduct({ 
                         ...editingProduct, 
-                        ingredients: e.target.value.split(',').map((i: string) => i.trim()).filter((i: string) => i) 
+                        ingredientsText: e.target.value
+                      })}
+                      onBlur={(e) => setEditingProduct({
+                        ...editingProduct,
+                        ingredientsText: undefined,
+                        ingredients: e.target.value.split(',').map((i: string) => i.trim()).filter((i: string) => i)
                       })}
                       placeholder="e.g., Apple, Kale, Spinach"
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:border-green-600"
@@ -959,10 +1160,15 @@ export const Admin: React.FC = () => {
                     <label className="block text-sm font-medium text-gray-700 mb-1">Benefits (comma separated)</label>
                     <input
                       type="text"
-                      value={(editingProduct.benefits || []).join(', ')}
+                      value={editingProduct.benefitsText !== undefined ? editingProduct.benefitsText : (editingProduct.benefits || []).join(', ')}
                       onChange={(e) => setEditingProduct({ 
                         ...editingProduct, 
-                        benefits: e.target.value.split(',').map((b: string) => b.trim()).filter((b: string) => b) 
+                        benefitsText: e.target.value
+                      })}
+                      onBlur={(e) => setEditingProduct({
+                        ...editingProduct,
+                        benefitsText: undefined,
+                        benefits: e.target.value.split(',').map((b: string) => b.trim()).filter((b: string) => b)
                       })}
                       placeholder="e.g., Energy, Immunity, Detox"
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:border-green-600"
@@ -1042,7 +1248,7 @@ export const Admin: React.FC = () => {
                         className="bg-red-600 hover:bg-red-700 disabled:bg-red-400 text-white font-semibold py-2 px-4 rounded-lg transition flex items-center justify-center"
                       >
                         {deletingProduct === product.id ? (
-                          <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                          <div className="w-5 h-5 border-2 border-red-600 border-t-transparent rounded-full animate-spin"></div>
                         ) : (
                           <span className="material-symbols-outlined text-lg">delete</span>
                         )}
@@ -1051,6 +1257,124 @@ export const Admin: React.FC = () => {
                   </div>
                 </div>
               ))}
+            </div>
+          </div>
+        )}
+
+        {/* Settings Tab - NEW */}
+        {activeTab === 'settings' && (
+          <div>
+            <h2 className="text-2xl font-bold text-gray-900 mb-6">Fee Management</h2>
+            
+            {feeMessage && (
+              <div className={`p-4 rounded-lg mb-6 ${
+                feeMessage.type === 'success' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+              }`}>
+                {feeMessage.text}
+              </div>
+            )}
+
+            <div className="max-w-2xl">
+              <div className="bg-white rounded-lg shadow p-6 space-y-6">
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900 border-b pb-2 mb-4">Delivery Fees</h3>
+                  
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Shipping Fee (₹)
+                      </label>
+                      <input
+                        type="number"
+                        value={feeSettings.shipping_fee}
+                        onChange={(e) => setFeeSettings({ ...feeSettings, shipping_fee: Number(e.target.value) })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:border-green-600"
+                        min="0"
+                      />
+                      <p className="text-xs text-gray-500 mt-1">Base delivery charge for all orders</p>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Free Shipping Above (₹)
+                      </label>
+                      <input
+                        type="number"
+                        value={feeSettings.free_shipping_threshold}
+                        onChange={(e) => setFeeSettings({ ...feeSettings, free_shipping_threshold: Number(e.target.value) })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:border-green-600"
+                        min="0"
+                      />
+                      <p className="text-xs text-gray-500 mt-1">Orders above this amount get free shipping</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900 border-b pb-2 mb-4">Additional Charges</h3>
+                  
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Packaging Fee (₹)
+                      </label>
+                      <input
+                        type="number"
+                        value={feeSettings.packaging_fee}
+                        onChange={(e) => setFeeSettings({ ...feeSettings, packaging_fee: Number(e.target.value) })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:border-green-600"
+                        min="0"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Tax Percentage (%)
+                      </label>
+                      <input
+                        type="number"
+                        value={feeSettings.tax_percentage}
+                        onChange={(e) => setFeeSettings({ ...feeSettings, tax_percentage: Number(e.target.value) })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:border-green-600"
+                        min="0"
+                        max="100"
+                        step="0.1"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="border-t pt-4">
+                  <label className="flex items-center gap-3 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={feeSettings.is_active}
+                      onChange={(e) => setFeeSettings({ ...feeSettings, is_active: e.target.checked })}
+                      className="w-5 h-5 rounded border-gray-300 text-green-600 focus:ring-green-500"
+                    />
+                    <span className="text-sm font-medium text-gray-700">Enable extra fees</span>
+                  </label>
+                  <p className="text-xs text-gray-500 mt-1 ml-8">When disabled, only product prices are charged</p>
+                </div>
+
+                <button
+                  onClick={saveFeeSettings}
+                  disabled={savingFees}
+                  className="w-full bg-green-600 hover:bg-green-700 disabled:bg-green-400 text-white font-semibold py-3 px-4 rounded-lg transition flex items-center justify-center gap-2"
+                >
+                  {savingFees ? (
+                    <>
+                      <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                      Saving...
+                    </>
+                  ) : (
+                    <>
+                      <span className="material-symbols-outlined">save</span>
+                      Save Settings
+                    </>
+                  )}
+                </button>
+              </div>
             </div>
           </div>
         )}
