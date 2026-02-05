@@ -39,7 +39,7 @@ export const Checkout: React.FC = () => {
           .from('app_settings')
           .select('value')
           .eq('key', 'fee_settings')
-          .maybeSingle(); // Use maybeSingle instead of single to avoid 406 error
+          .maybeSingle();
         
         if (error) {
           console.log('Fee settings not found, using defaults');
@@ -48,7 +48,15 @@ export const Checkout: React.FC = () => {
         }
         
         if (data?.value) {
-          setFeeSettings(data.value as FeeSettings);
+          // Properly parse and validate the fee settings
+          const parsedFees = data.value as FeeSettings;
+          setFeeSettings({
+            shipping_fee: parsedFees.shipping_fee ?? 0,
+            packaging_fee: parsedFees.packaging_fee ?? 0,
+            tax_percentage: parsedFees.tax_percentage ?? 0,
+            free_shipping_threshold: parsedFees.free_shipping_threshold ?? 500,
+            is_active: parsedFees.is_active !== false,
+          });
         } else {
           setFeeSettings(defaultFees);
         }
@@ -71,12 +79,12 @@ export const Checkout: React.FC = () => {
     ? `${defaultAddress.address_line1}${defaultAddress.address_line2 ? ', ' + defaultAddress.address_line2 : ''}, ${defaultAddress.city}, ${defaultAddress.state} ${defaultAddress.postal_code}`
     : 'No address saved';
 
-  // Calculate totals using fee settings
-  const shipping = feeSettings?.is_active 
-    ? (cartTotal >= (feeSettings?.free_shipping_threshold || 500) ? 0 : (feeSettings?.shipping_fee || 50))
+  // Calculate totals using fee settings - FIXED to respect 0 values
+  const shipping = feeSettings?.is_active && feeSettings?.shipping_fee !== undefined
+    ? (cartTotal >= (feeSettings?.free_shipping_threshold || 500) ? 0 : feeSettings.shipping_fee)
     : 0;
-  const packaging = feeSettings?.is_active ? (feeSettings?.packaging_fee || 0) : 0;
-  const taxRate = feeSettings?.is_active ? (feeSettings?.tax_percentage || 5) : 0;
+  const packaging = feeSettings?.is_active && feeSettings?.packaging_fee !== undefined ? feeSettings.packaging_fee : 0;
+  const taxRate = feeSettings?.is_active && feeSettings?.tax_percentage !== undefined ? feeSettings.tax_percentage : 0;
   const tax = cartTotal * (taxRate / 100);
   const total = cartTotal + shipping + packaging + tax;
 

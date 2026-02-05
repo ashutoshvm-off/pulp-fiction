@@ -445,6 +445,15 @@ export const Admin: React.FC = () => {
     setFeeMessage(null);
 
     try {
+      // Validate that we're storing numeric values, including 0
+      const settingsToSave = {
+        shipping_fee: Number(feeSettings.shipping_fee) || 0,
+        packaging_fee: Number(feeSettings.packaging_fee) || 0,
+        tax_percentage: Number(feeSettings.tax_percentage) || 0,
+        free_shipping_threshold: Number(feeSettings.free_shipping_threshold) || 500,
+        is_active: feeSettings.is_active,
+      };
+
       // First try to update existing row
       const { data: existing } = await supabase
         .from('app_settings')
@@ -458,7 +467,7 @@ export const Admin: React.FC = () => {
         const result = await supabase
           .from('app_settings')
           .update({
-            value: feeSettings,
+            value: settingsToSave,
             updated_at: new Date().toISOString(),
           })
           .eq('key', 'fee_settings');
@@ -469,13 +478,13 @@ export const Admin: React.FC = () => {
           .from('app_settings')
           .insert({
             key: 'fee_settings',
-            value: feeSettings,
+            value: settingsToSave,
           });
         error = result.error;
       }
 
       if (error) throw error;
-      setFeeMessage({ type: 'success', text: 'Fee settings saved successfully!' });
+      setFeeMessage({ type: 'success', text: 'Fee settings saved successfully! Shipping: ₹' + settingsToSave.shipping_fee + ', Tax: ' + settingsToSave.tax_percentage + '%' });
     } catch (err: any) {
       console.error('Save fee error:', err);
       setFeeMessage({ type: 'error', text: err.message || 'Failed to save settings' });
@@ -1562,8 +1571,8 @@ export const Admin: React.FC = () => {
                         <span className="material-symbols-outlined text-sm">check</span>
                         Add Agent
                       </>
-                    )}
-                  </button>
+                    )
+                  }</button>
                   <button
                     onClick={() => {
                       setShowAddAgentForm(false);

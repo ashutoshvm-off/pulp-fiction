@@ -26,9 +26,9 @@ export const BuildBox: React.FC = () => {
   }, []);
 
   return (
-    <div className="flex flex-col lg:flex-row gap-8 relative items-start">
+    <div className="flex flex-col lg:flex-row gap-8 relative items-start w-full">
       {/* Product Grid */}
-      <div className="flex-1 w-full lg:w-2/3 xl:w-3/4">
+      <div className="flex-1 w-full">
         {/* Sticky Filters */}
         <div className="sticky top-[73px] z-30 bg-background-light/95 dark:bg-background-dark/95 backdrop-blur-sm py-4 mb-6 border-b border-sage-100 dark:border-sage-800 overflow-x-auto no-scrollbar">
           <div className="flex gap-3 min-w-max px-1">
@@ -94,8 +94,8 @@ export const BuildBox: React.FC = () => {
       </div>
 
       {/* Sidebar */}
-      <div className="w-full lg:w-1/3 xl:w-1/4 sticky top-28 self-start">
-         <div className="bg-white dark:bg-sage-900 rounded-2xl border border-sage-100 dark:border-sage-800 shadow-xl overflow-hidden flex flex-col">
+      <div className="w-full lg:w-1/3 xl:w-1/4">
+         <div className="bg-white dark:bg-sage-900 rounded-2xl border border-sage-100 dark:border-sage-800 shadow-xl overflow-hidden flex flex-col h-fit lg:sticky lg:top-28">
             <div className="bg-sage-50 dark:bg-sage-800 p-6 pb-8 border-b border-sage-100 dark:border-sage-700">
                <div className="flex justify-between items-center mb-4">
                   <h2 className="text-xl font-bold dark:text-white">Your Box</h2>
@@ -140,7 +140,7 @@ export const BuildBox: React.FC = () => {
             </div>
             
             <div className="p-6 border-t border-sage-100 dark:border-sage-700 bg-sage-50/50 dark:bg-sage-900">
-               <Link to="/subscription/schedule" className={`w-full bg-primary text-white font-bold py-3 rounded-xl shadow-lg hover:bg-green-500 transition-all flex items-center justify-center gap-2 group ${itemsCount < BOX_CAPACITY ? 'opacity-50 pointer-events-none' : ''}`}>
+               <Link to="/subscription/schedule" className={`w-full bg-primary text-white font-bold py-3 px-4 rounded-xl shadow-lg hover:bg-green-500 transition-all flex items-center justify-center gap-2 group text-sm sm:text-base ${itemsCount < BOX_CAPACITY ? 'opacity-50 pointer-events-none' : ''}`}>
                   Continue to Schedule
                   <span className="material-symbols-outlined group-hover:translate-x-1 transition-transform">arrow_forward</span>
                </Link>
